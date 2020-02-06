@@ -44,7 +44,7 @@ nth_param_t<N, Params...> nth_param(Params&&... params)
     return std::get<N>(std::forward_as_tuple(params...));
 }
 
-// The "mock info" for a mocked function that takes N parameters has `params<1>(), ..., params<N>()` members
+// The "mock info" for a mocked function that takes N parameters has `param<1>(), ..., param<N>()` members
 // holding the actual N parameters, for usage in tests.
 template <size_t N, typename ...Params>
 struct mock_info_parameters
@@ -415,9 +415,9 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
 ///         // Depends on user_names
 ///         some_tested_entity tested_entity(user_names);
 ///     
-///         TEST_ASSERT(tested_entity.can_do_its_job());    // Allegedly uses user_names::find_by_id
-///         TEST_ASSERT(names.find_by_id_.called());        // Did the tested entity even call it?
-///         TEST_ASSERT(names.find_by_id_.param1() < 4711); // Did the tested entity pass it a valid id?
+///         TEST_ASSERT(tested_entity.can_do_its_job());      // Allegedly uses user_names::find_by_id
+///         TEST_ASSERT(names.find_by_id_.called());          // Did the tested entity even call it?
+///         TEST_ASSERT(names.find_by_id_.param<1>() < 4711); // Did the tested entity pass it a valid id?
 ///     }
 ///
 /// @example More complex usage. The `func` "mock info" member can be used instead of `result`
@@ -464,10 +464,10 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
 ///     bool                             foo_.called();    // set by the mocking framework
 ///     size_t                           foo_.count();     // set by the mocking framework
 ///     std::string                      foo_.prototype(); // set by the mocking framework
-///     T1                               foo_.param1();    // set by the mocking framework
+///     T1                               foo_.param<1>();  // set by the mocking framework
 ///     .                                .
 ///     .                                .
-///     TN                               foo_.paramN()     // set by the mocking framework
+///     TN                               foo_.param<N>()   // set by the mocking framework
 ///
 /// The "mock info" members available for a mocked function `foo` that returns T and takes N parameters of types T1..TN:
 ///
@@ -477,10 +477,10 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
 ///     bool                             foo_.called();    // set by the mocking framework
 ///     size_t                           foo_.count();     // set by the mocking framework
 ///     std::string                      foo_.prototype(); // set by the mocking framework
-///     T1                               foo_.param1();    // set by the mocking framework
+///     T1                               foo_.param<1>();  // set by the mocking framework
 ///     .                                .
 ///     .                                .
-///     TN                               foo_.paramN()     // set by the mocking framework
+///     TN                               foo_.param<N>()   // set by the mocking framework
 ///
 /// @param prefix `static`, `virtual`, etc. Can be left empty if the mocked function supports it.
 /// @param suffix `override`, `const`, `noexcept`, etc. Can be left empty if the mocked function supports it.
@@ -601,7 +601,7 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
 ///     
 ///         TEST_ASSERT(tested_entity.can_do_its_job()); // Did it work?
 ///         TEST_ASSERT(find_by_id_.called());           // Did the tested entity even call it?
-///         TEST_ASSERT(find_by_id_.param1() < 4711);    // Did the tested entity pass it a valid id?
+///         TEST_ASSERT(find_by_id_.param<1>() < 4711);  // Did the tested entity pass it a valid id?
 ///     }
 ///
 ///     -----------
@@ -627,7 +627,7 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
 ///     
 ///         TEST_ASSERT(!tested_entity.can_do_its_job()); // Did it fail?
 ///         TEST_ASSERT(find_by_id_.called());            // Did the tested entity even call it?
-///         TEST_ASSERT(find_by_id_.param1() < 4711);     // Did the tested entity pass it a valid id?
+///         TEST_ASSERT(find_by_id_.param<1>() < 4711);   // Did the tested entity pass it a valid id?
 ///     }
 ///
 /// @param prefix `static`, etc. Can be left empty if the mocked function supports it.
