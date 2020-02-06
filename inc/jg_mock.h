@@ -44,20 +44,14 @@ nth_param_t<N, Params...> nth_param(Params&&... params)
     return std::get<N>(std::forward_as_tuple(params...));
 }
 
-// The "mock info" for a mocked function that takes N parameters has `params1(), ..., paramsN()` members
+// The "mock info" for a mocked function that takes N parameters has `params<1>(), ..., params<N>()` members
 // holding the actual N parameters, for usage in tests.
 template <size_t N, typename ...Params>
-struct mock_info_parameters;
-
-// The "mock info" for a mocked function that takes no parameters has no parameter-holding member.
-template <>
-struct mock_info_parameters<0>
+struct mock_info_parameters
 {
-};
+    template <size_t Number>
+    auto param() const { return std::get<Number - 1>(m_params); }
 
-template <typename ...Params>
-struct mock_info_parameters_base
-{
 protected:
     template <typename, typename>
     friend struct mock_impl;
@@ -68,109 +62,10 @@ protected:
     tuple_params_t<Params...> m_params;
 };
 
-template <typename T1>
-struct mock_info_parameters<1, T1> : mock_info_parameters_base<T1>
+// The "mock info" for a mocked function that takes no parameters has no parameter-holding member.
+template <>
+struct mock_info_parameters<0>
 {
-    T1 param1() const { return std::get<0>(m_params); }
-};
-
-template <typename T1, typename T2>
-struct mock_info_parameters<2, T1, T2> : mock_info_parameters_base<T1, T2>
-{
-    T1 param1() const { return std::get<0>(m_params); }
-    T2 param2() const { return std::get<1>(m_params); }
-};
-
-template <typename T1, typename T2, typename T3>
-struct mock_info_parameters<3, T1, T2, T3> : mock_info_parameters_base<T1, T2, T3>
-{
-    T1 param1() const { return std::get<0>(m_params); }
-    T2 param2() const { return std::get<1>(m_params); }
-    T3 param3() const { return std::get<2>(m_params); }
-};
-
-template <typename T1, typename T2, typename T3, typename T4>
-struct mock_info_parameters<4, T1, T2, T3, T4> : mock_info_parameters_base<T1, T2, T3, T4>
-{
-    T1 param1() const { return std::get<0>(m_params); }
-    T2 param2() const { return std::get<1>(m_params); }
-    T3 param3() const { return std::get<2>(m_params); }
-    T4 param4() const { return std::get<3>(m_params); }
-};
-
-template <typename T1, typename T2, typename T3, typename T4, typename T5>
-struct mock_info_parameters<5, T1, T2, T3, T4, T5> : mock_info_parameters_base<T1, T2, T3, T4, T5>
-{
-    T1 param1() const { return std::get<0>(m_params); }
-    T2 param2() const { return std::get<1>(m_params); }
-    T3 param3() const { return std::get<2>(m_params); }
-    T4 param4() const { return std::get<3>(m_params); }
-    T5 param5() const { return std::get<4>(m_params); }
-};
-
-template <typename T1, typename T2, typename T3, typename T4, typename T5, typename T6>
-struct mock_info_parameters<6, T1, T2, T3, T4, T5, T6> : mock_info_parameters_base<T1, T2, T3, T4, T5, T6>
-{
-    T1 param1() const { return std::get<0>(m_params); }
-    T2 param2() const { return std::get<1>(m_params); }
-    T3 param3() const { return std::get<2>(m_params); }
-    T4 param4() const { return std::get<3>(m_params); }
-    T5 param5() const { return std::get<4>(m_params); }
-    T6 param6() const { return std::get<5>(m_params); }
-};
-
-template <typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7>
-struct mock_info_parameters<7, T1, T2, T3, T4, T5, T6, T7> : mock_info_parameters_base<T1, T2, T3, T4, T5, T6, T7>
-{
-    T1 param1() const { return std::get<0>(m_params); }
-    T2 param2() const { return std::get<1>(m_params); }
-    T3 param3() const { return std::get<2>(m_params); }
-    T4 param4() const { return std::get<3>(m_params); }
-    T5 param5() const { return std::get<4>(m_params); }
-    T6 param6() const { return std::get<5>(m_params); }
-    T7 param7() const { return std::get<6>(m_params); }
-};
-
-template <typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7, typename T8>
-struct mock_info_parameters<8, T1, T2, T3, T4, T5, T6, T7, T8> : mock_info_parameters_base<T1, T2, T3, T4, T5, T6, T7, T8>
-{
-    T1 param1() const { return std::get<0>(m_params); }
-    T2 param2() const { return std::get<1>(m_params); }
-    T3 param3() const { return std::get<2>(m_params); }
-    T4 param4() const { return std::get<3>(m_params); }
-    T5 param5() const { return std::get<4>(m_params); }
-    T6 param6() const { return std::get<5>(m_params); }
-    T7 param7() const { return std::get<6>(m_params); }
-    T8 param8() const { return std::get<7>(m_params); }
-};
-
-template <typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7, typename T8, typename T9>
-struct mock_info_parameters<9, T1, T2, T3, T4, T5, T6, T7, T8, T9> : mock_info_parameters_base<T1, T2, T3, T4, T5, T6, T7, T8, T9>
-{
-    T1 param1() const { return std::get<0>(m_params); }
-    T2 param2() const { return std::get<1>(m_params); }
-    T3 param3() const { return std::get<2>(m_params); }
-    T4 param4() const { return std::get<3>(m_params); }
-    T5 param5() const { return std::get<4>(m_params); }
-    T6 param6() const { return std::get<5>(m_params); }
-    T7 param7() const { return std::get<6>(m_params); }
-    T8 param8() const { return std::get<7>(m_params); }
-    T9 param9() const { return std::get<8>(m_params); }
-};
-
-template <typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7, typename T8, typename T9, typename T10>
-struct mock_info_parameters<10, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10> : mock_info_parameters_base<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>
-{
-    T1 param1() const { return std::get<0>(m_params); }
-    T2 param2() const { return std::get<1>(m_params); }
-    T3 param3() const { return std::get<2>(m_params); }
-    T4 param4() const { return std::get<3>(m_params); }
-    T5 param5() const { return std::get<4>(m_params); }
-    T6 param6() const { return std::get<5>(m_params); }
-    T7 param7() const { return std::get<6>(m_params); }
-    T8 param8() const { return std::get<7>(m_params); }
-    T9 param9() const { return std::get<8>(m_params); }
-    T10 param10() const { return std::get<9>(m_params); }
 };
 
 #ifdef NDEBUG
@@ -197,11 +92,38 @@ inline T* debug_check_ptr(T* ptr)
     return ptr;
 }
 #endif
-    
+
+template <typename T, typename Enable = void>
+class checked_value;
+
 /// Asserts that the wrapped value is set before it's being referenced.
-/// @note The check is only done when the preprocessor macro NDEBUG is defined
+/// @note The check is only done when the preprocessor macro NDEBUG is not defined
 template <typename T>
-class checked_value final
+class checked_value<T, std::enable_if_t<std::is_reference_v<T>>> final
+{
+public:
+    checked_value& operator=(T other)
+    {
+        value = &other;
+        assigned = true;
+        return *this;
+    }
+
+    operator T()
+    {
+        debug_check(assigned);
+        return *value;
+    }
+
+private:
+    std::remove_reference_t<T>* value = nullptr;
+    bool assigned = false;
+};
+
+/// Asserts that the wrapped value is set before it's being referenced.
+/// @note The check is only done when the preprocessor macro NDEBUG is not defined
+template <typename T>
+class checked_value<T, std::enable_if_t<!std::is_reference_v<T>>> final
 {
 public:
     checked_value& operator=(const T& other)
@@ -225,19 +147,16 @@ public:
     }
 
 private:
-    base_t<T> value = base_t<T>();
+    T value{};
     bool assigned = false;
 };
-
-template <typename T, typename Enable = void>
-struct mock_info_return;
 
 // The "mock info" for a mocked function that returns non-`void` has a `result` member
 // that can be set in tests, as a quicker way of just returning a desired value from a
 // mocked dependency. The other way is to assign a lambda to the `func` member, but if
 // just a return value needs to be modeled, then `result` is the easier way.
 template <typename T>
-struct mock_info_return<T, std::enable_if_t<!std::is_same<T, void>::value>>
+struct mock_info_return
 {
     // Checked, to make sure that a test doesn't use the result without first setting it.
     checked_value<T> result;
@@ -246,8 +165,8 @@ struct mock_info_return<T, std::enable_if_t<!std::is_same<T, void>::value>>
 // The "mock info" for a mocked function that returns `void` has no `result` member, and
 // the mock implementation for it can only be controlled by assigning a lambda to the
 // `func` member.
-template <typename T>
-struct mock_info_return<T, std::enable_if_t<std::is_same<T, void>::value>>
+template <>
+struct mock_info_return<void>
 {
 };
 
