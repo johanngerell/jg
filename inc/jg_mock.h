@@ -3,7 +3,9 @@
 #include <cassert>
 #include <functional>
 #include <string>
+#ifdef JG_MOCK_ENABLE_PROXY_LOCK
 #include <mutex>
+#endif
 #include "jg_state_scope.h"
 #include "jg_stacktrace.h"
 
@@ -350,19 +352,20 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
     prefix ret function_name ## function_name_suffix(_MOCK_FUNCTION_PARAMS_DECL_BOTH(__VA_ARGS__)) suffix \
     { body_macro(prefix, suffix, ret, function_name, function_name_suffix, overload_suffix, body_extra, __VA_ARGS__); }
 
-/// @macro MOCK_RESET
-///
-/// Resets the "mock info" state for the named function, if that's needed in a test.
-/// Counters are set to zero, and return value, parameters, and the "lambda implementation"
-/// are are cleared.
-#define MOCK_RESET(function_name) \
-    function_name ## _ = decltype(function_name ## _)(function_name ## _.prototype())
+#ifdef JG_MOCK_ENABLE_PROXY_LOCK
+#define _MOCK_PROXY_LOCK_GUARD(function_name, overload_suffix) \
+    std::lock_guard<std::mutex> _JG_CONCAT(lock_, __LINE__)(function_name ## overload_suffix ## _mutex)
+#define _MOCK_PROXY_LOCK_DECLARE_MUTEX_VARIABLE(function_name, overload_suffix) \
+    std::mutex function_name ## overload_suffix ## _mutex
+#define _MOCK_PROXY_LOCK_DECLARE_MUTEX_EXTERN_VARIABLE(function_name, overload_suffix) \
+    extern std::mutex function_name ## overload_suffix ## _mutex
+#else
+#define _MOCK_PROXY_LOCK_GUARD(function_name, overload_suffix)
+#define _MOCK_PROXY_LOCK_DECLARE_MUTEX_VARIABLE(function_name, overload_suffix)
+#define _MOCK_PROXY_LOCK_DECLARE_MUTEX_EXTERN_VARIABLE(function_name, overload_suffix)
+#endif
 
-/// @macro MOCK_OVERLOAD_RESET
-///
-/// Resets the "mock info" state for the named overloaded function, if that's needed in a test.
-#define MOCK_OVERLOAD_RESET(function_name, overload_suffix) \
-    function_name ## overload_suffix ## _  = decltype(function_name ## overload_suffix ## _)(function_name ## overload_suffix ## _.prototype())
+// --------------------------- Implementation details go above this line ---------------------------
 
 /// @macro MOCK
 ///
@@ -491,6 +494,14 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
     _MOCK_PREAMBLE(prefix, suffix, return_value, function_name,,,, __VA_ARGS__); \
     _MOCK_FUNCTION(_MOCK_BODY, prefix, suffix, return_value, function_name,,,, __VA_ARGS__)
 
+/// @macro MOCK_RESET
+///
+/// Resets the "mock info" state for the named function, if that's needed in a test.
+/// Counters are set to zero, and return value, parameters, and the "lambda implementation"
+/// are are cleared.
+#define MOCK_RESET(function_name) \
+    function_name ## _ = decltype(function_name ## _)(function_name ## _.prototype())
+
 /// @macro MOCK_OVERLOAD
 ///
 /// Defines an overload of a free function, or an overload of a virtual function override, with auxiliary
@@ -526,6 +537,12 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
 #define MOCK_OVERLOAD(prefix, suffix, return_value, function_name, overload_suffix, ...) \
     _MOCK_PREAMBLE(prefix, suffix, return_value, function_name,, overload_suffix,, __VA_ARGS__); \
     _MOCK_FUNCTION(_MOCK_BODY, prefix, suffix, return_value, function_name,, overload_suffix,, __VA_ARGS__)
+
+/// @macro MOCK_OVERLOAD_RESET
+///
+/// Resets the "mock info" state for the named overloaded function, if that's needed in a test.
+#define MOCK_OVERLOAD_RESET(function_name, overload_suffix) \
+    function_name ## overload_suffix ## _  = decltype(function_name ## overload_suffix ## _)(function_name ## overload_suffix ## _.prototype())
 
 /// @macro MOCK_PROXY
 ///
@@ -638,7 +655,7 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
 #define MOCK_PROXY(prefix, suffix, return_value, function_name, ...) \
     typedef prefix return_value (*function_name ## _proxy_func_t)(__VA_ARGS__) suffix; \
     function_name ## _proxy_func_t function_name ## _proxy_func = nullptr; \
-    std::mutex function_name ## _mutex; \
+    _MOCK_PROXY_LOCK_DECLARE_MUTEX_VARIABLE(function_name,); \
     _MOCK_FUNCTION(_MOCK_BODY_PROXY, prefix, suffix, return_value, function_name,,, _proxy, __VA_ARGS__)
 
 /// @macro MOCK_PROXY_OVERLOAD
@@ -650,7 +667,7 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
 #define MOCK_PROXY_OVERLOAD(prefix, suffix, return_value, function_name, overload_suffix, ...) \
     typedef prefix return_value (*function_name ## overload_suffix ## _proxy_func_t)(__VA_ARGS__) suffix; \
     function_name ## overload_suffix ## _proxy_func_t function_name ## overload_suffix ## _proxy_func = nullptr; \
-    std::mutex function_name ## overload_suffix ## _mutex; \
+    _MOCK_PROXY_LOCK_DECLARE_MUTEX_VARIABLE(function_name, overload_suffix); \
     _MOCK_FUNCTION(_MOCK_BODY_PROXY, prefix, suffix, return_value, function_name,, overload_suffix, _proxy, __VA_ARGS__)
 
 /// @macro MOCK_PROXY_SUBJECT
@@ -668,7 +685,7 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
 #define MOCK_PROXY_SUBJECT(prefix, suffix, return_value, function_name, ...) \
     typedef prefix return_value (*function_name ## _proxy_func_t)(__VA_ARGS__) suffix; \
     extern function_name ## _proxy_func_t function_name ## _proxy_func; \
-    extern std::mutex function_name ## _mutex; \
+    _MOCK_PROXY_LOCK_DECLARE_MUTEX_EXTERN_VARIABLE(function_name,); \
     namespace { _MOCK_PREAMBLE(prefix, suffix, return_value, function_name,,,, __VA_ARGS__); \
     _MOCK_FUNCTION(_MOCK_BODY, prefix, suffix, return_value, function_name, _proxy,,, __VA_ARGS__); }
 
@@ -678,7 +695,7 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
 #define MOCK_PROXY_OVERLOAD_SUBJECT(prefix, suffix, return_value, function_name, overload_suffix, ...) \
     typedef prefix return_value (*function_name ## overload_suffix ## _proxy_func_t)(__VA_ARGS__) suffix; \
     extern function_name ## overload_suffix ## _proxy_func_t function_name ## overload_suffix ## _proxy_func; \
-    extern std::mutex function_name ## overload_suffix ## _mutex; \
+    _MOCK_PROXY_LOCK_DECLARE_MUTEX_EXTERN_VARIABLE(function_name, overload_suffix); \
     namespace { _MOCK_PREAMBLE(prefix, suffix, return_value, function_name,, overload_suffix,, __VA_ARGS__); \
     _MOCK_FUNCTION(_MOCK_BODY, prefix, suffix, return_value, function_name, overload_suffix ## _proxy, overload_suffix,, __VA_ARGS__) }
 
@@ -700,7 +717,7 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
 /// @see MOCK, MOCK_PROXY, MOCK_PROXY_SUBJECT
 #define MOCK_PROXY_INIT(function_name) \
     MOCK_RESET(function_name); \
-    std::lock_guard<std::mutex> _JG_CONCAT(lock_, __LINE__)(function_name ## _mutex); \
+    _MOCK_PROXY_LOCK_GUARD(function_name,); \
     jg::state_scope_value _JG_CONCAT(scope_, __LINE__)(function_name ## _proxy_func, function_name ## _proxy, nullptr)
 
 /// @macro MOCK_PROXY_OVERLOAD_INIT
@@ -708,5 +725,5 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
 /// @see MOCK_PROXY_INIT
 #define MOCK_PROXY_OVERLOAD_INIT(function_name, overload_suffix) \
     MOCK_OVERLOAD_RESET(function_name, overload_suffix); \
-    std::lock_guard<std::mutex> _JG_CONCAT(lock_, __LINE__)(function_name ## overload_suffix ## _mutex); \
+    _MOCK_PROXY_LOCK_GUARD(function_name, overload_suffix); \
     jg::state_scope_value _JG_CONCAT(scope_, __LINE__)(function_name ## overload_suffix ## _proxy_func, function_name ## overload_suffix ## _proxy, nullptr)
