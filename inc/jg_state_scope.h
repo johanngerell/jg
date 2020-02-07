@@ -27,12 +27,12 @@ namespace jg
 ///     TEST()
 ///     {
 ///         // Naming it '_' emphasizes its unused-ness.
-///         jg::state_scope_value(g_some_global_flag, false, true) _;
+///         jg::state_scope_value _(g_some_global_flag, false, true);
 ///     
 ///         // perform_action() depends on g_some_global_flag.
 ///         TEST_ASSERT(perform_action());
 ///     }
-template <typename T, typename U, typename V>
+template <typename T, typename U = T, typename V = T>
 class state_scope_value final
 {
 public:
@@ -50,6 +50,9 @@ public:
     {
         *m_instance = std::move(m_exit_value);
     }
+
+    state_scope_value(const state_scope_value&) = delete;
+    state_scope_value& operator=(const state_scope_value&) = delete;
 
 private:
     T* m_instance;
@@ -105,6 +108,9 @@ public:
     {
         m_exit_action();
     }
+
+    state_scope_action(const state_scope_action&) = delete;
+    state_scope_action& operator=(const state_scope_action&) = delete;
 
 private:
     V m_exit_action;
