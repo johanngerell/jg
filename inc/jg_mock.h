@@ -270,15 +270,7 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
 } // namespace detail
 } // namespace jg
 
-#define _MOCK_PREAMBLE(prefix, suffix, ret, function_name, function_name_suffix, overload_suffix, body_extra, ...) \
-    jg::detail::mock_info<ret, __VA_ARGS__> function_name ## overload_suffix ## _  {#ret " " #function_name "(" #__VA_ARGS__ ") " #suffix}
-
-// The variadic macro parameter count macros below are derived from these links:
-//
-// https://stackoverflow.com/questions/5530505/why-does-this-variadic-argument-count-macro-fail-with-vc
-// https://stackoverflow.com/questions/26682812/argument-counting-macro-with-zero-arguments-for-visualstudio
-// https://stackoverflow.com/questions/9183993/msvc-variadic-macro-expansion?rq=1
-
+#define _JG_CONCAT3(x, y, z) x ## y ## z
 #define _JG_CONCAT2(x, y) x ## y
 #define _JG_CONCAT(x, y) _JG_CONCAT2(x, y)
 #define _JG_EXPAND(x) x
@@ -295,6 +287,15 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
 #define _JG_VA_COUNT_1(...) _JG_EXPAND(_JG_VA_COUNT_2(0, ## __VA_ARGS__,10,9,8,7,6,5,4,3,2,1,0))
 #define _JG_VA_COUNT(...) _JG_VA_COUNT_1(__VA_ARGS__)
 #endif
+
+#define _MOCK_PREAMBLE(prefix, suffix, ret, function_name, function_name_suffix, overload_suffix, body_extra, ...) \
+    jg::detail::mock_info<ret, __VA_ARGS__> _JG_CONCAT3(function_name, overload_suffix, _) {#ret " " #function_name "(" #__VA_ARGS__ ") " #suffix}
+
+// The variadic macro parameter count macros below are derived from these links:
+//
+// https://stackoverflow.com/questions/5530505/why-does-this-variadic-argument-count-macro-fail-with-vc
+// https://stackoverflow.com/questions/26682812/argument-counting-macro-with-zero-arguments-for-visualstudio
+// https://stackoverflow.com/questions/9183993/msvc-variadic-macro-expansion?rq=1
 
 #define _MOCK_FUNCTION_PARAMS_DECL_FIRST_0()
 #define _MOCK_FUNCTION_PARAMS_DECL_FIRST_1(T1) T1
@@ -342,23 +343,23 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
     _JG_GLUE(_JG_CONCAT(_MOCK_FUNCTION_PARAMS_CALL_, _JG_VA_COUNT(__VA_ARGS__)), (__VA_ARGS__))
 
 #define _MOCK_BODY(prefix, suffix, ret, function_name, function_name_suffix, overload_suffix, body_extra, ...) \
-    return jg::detail::mock_impl<ret, decltype(function_name ## overload_suffix ## _)>(function_name ## overload_suffix ## _).impl(_MOCK_FUNCTION_PARAMS_CALL(__VA_ARGS__))
+    return jg::detail::mock_impl<ret, decltype(_JG_CONCAT3(function_name, overload_suffix, _))>(_JG_CONCAT3(function_name, overload_suffix, _)).impl(_MOCK_FUNCTION_PARAMS_CALL(__VA_ARGS__))
 
 #define _MOCK_BODY_PROXY(prefix, suffix, ret, function_name, function_name_suffix, overload_suffix, body_extra, ...) \
-    auto proxy_func = jg::detail::debug_check_ptr(function_name ## overload_suffix ## body_extra ## _func); \
+    auto proxy_func = jg::detail::debug_check_ptr(_JG_CONCAT3(function_name, overload_suffix, body_extra) ## _func); \
     return proxy_func ? proxy_func(_MOCK_FUNCTION_PARAMS_CALL(__VA_ARGS__)) : ret()
 
 #define _MOCK_FUNCTION(body_macro, prefix, suffix, ret, function_name, function_name_suffix, overload_suffix, body_extra, ...) \
-    prefix ret function_name ## function_name_suffix(_MOCK_FUNCTION_PARAMS_DECL_BOTH(__VA_ARGS__)) suffix \
+    prefix ret _JG_CONCAT3(function_name, function_name_suffix,)(_MOCK_FUNCTION_PARAMS_DECL_BOTH(__VA_ARGS__)) suffix \
     { body_macro(prefix, suffix, ret, function_name, function_name_suffix, overload_suffix, body_extra, __VA_ARGS__); }
 
 #ifdef JG_MOCK_ENABLE_PROXY_LOCK
 #define _MOCK_PROXY_LOCK_GUARD(function_name, overload_suffix) \
-    std::lock_guard<std::mutex> _JG_CONCAT(lock_, __LINE__)(function_name ## overload_suffix ## _mutex)
+    std::lock_guard<std::mutex> _JG_CONCAT(lock_, __LINE__)(_JG_CONCAT3(function_name, overload_suffix, _mutex))
 #define _MOCK_PROXY_LOCK_DECLARE_MUTEX_VARIABLE(function_name, overload_suffix) \
-    std::mutex function_name ## overload_suffix ## _mutex
+    std::mutex _JG_CONCAT3(function_name, overload_suffix, _mutex)
 #define _MOCK_PROXY_LOCK_DECLARE_MUTEX_EXTERN_VARIABLE(function_name, overload_suffix) \
-    extern std::mutex function_name ## overload_suffix ## _mutex
+    extern std::mutex _JG_CONCAT3(function_name, overload_suffix, _mutex)
 #else
 #define _MOCK_PROXY_LOCK_GUARD(function_name, overload_suffix)
 #define _MOCK_PROXY_LOCK_DECLARE_MUTEX_VARIABLE(function_name, overload_suffix)
@@ -500,7 +501,7 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
 /// Counters are set to zero, and return value, parameters, and the "lambda implementation"
 /// are are cleared.
 #define MOCK_RESET(function_name) \
-    function_name ## _ = decltype(function_name ## _)(function_name ## _.prototype())
+    _JG_CONCAT2(function_name, _) = decltype(_JG_CONCAT2(function_name, _))(_JG_CONCAT2(function_name, _).prototype())
 
 /// @macro MOCK_OVERLOAD
 ///
@@ -542,7 +543,7 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
 ///
 /// Resets the "mock info" state for the named overloaded function, if that's needed in a test.
 #define MOCK_OVERLOAD_RESET(function_name, overload_suffix) \
-    function_name ## overload_suffix ## _  = decltype(function_name ## overload_suffix ## _)(function_name ## overload_suffix ## _.prototype())
+    _JG_CONCAT3(function_name, overload_suffix, _) = decltype(_JG_CONCAT3(function_name, overload_suffix, _))(_JG_CONCAT3(function_name, overload_suffix, _).prototype())
 
 /// @macro MOCK_PROXY
 ///
@@ -653,8 +654,8 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
 /// @param function_name The name of the mocked function.
 /// @param variadic The variadic parameter list holds the parameter types of the mocked function, if any.
 #define MOCK_PROXY(prefix, suffix, return_value, function_name, ...) \
-    typedef prefix return_value (*function_name ## _proxy_func_t)(__VA_ARGS__) suffix; \
-    function_name ## _proxy_func_t function_name ## _proxy_func = nullptr; \
+    typedef prefix return_value (*_JG_CONCAT2(function_name, _proxy_func_t))(__VA_ARGS__) suffix; \
+    _JG_CONCAT2(function_name, _proxy_func_t) _JG_CONCAT2(function_name, _proxy_func) = nullptr; \
     _MOCK_PROXY_LOCK_DECLARE_MUTEX_VARIABLE(function_name,); \
     _MOCK_FUNCTION(_MOCK_BODY_PROXY, prefix, suffix, return_value, function_name,,, _proxy, __VA_ARGS__)
 
@@ -665,8 +666,8 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
 ///
 /// @see MOCK_PROXY, MOCK_OVERLOAD
 #define MOCK_PROXY_OVERLOAD(prefix, suffix, return_value, function_name, overload_suffix, ...) \
-    typedef prefix return_value (*function_name ## overload_suffix ## _proxy_func_t)(__VA_ARGS__) suffix; \
-    function_name ## overload_suffix ## _proxy_func_t function_name ## overload_suffix ## _proxy_func = nullptr; \
+    typedef prefix return_value (*_JG_CONCAT3(function_name, overload_suffix, _proxy_func_t))(__VA_ARGS__) suffix; \
+    _JG_CONCAT3(function_name, overload_suffix, _proxy_func_t) _JG_CONCAT3(function_name, overload_suffix, _proxy_func) = nullptr; \
     _MOCK_PROXY_LOCK_DECLARE_MUTEX_VARIABLE(function_name, overload_suffix); \
     _MOCK_FUNCTION(_MOCK_BODY_PROXY, prefix, suffix, return_value, function_name,, overload_suffix, _proxy, __VA_ARGS__)
 
@@ -683,8 +684,8 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
 /// @param function_name Set to the same as for the matching MOCK_PROXY.
 /// @param variadic Set to the same as for the matching MOCK_PROXY.
 #define MOCK_PROXY_SUBJECT(prefix, suffix, return_value, function_name, ...) \
-    typedef prefix return_value (*function_name ## _proxy_func_t)(__VA_ARGS__) suffix; \
-    extern function_name ## _proxy_func_t function_name ## _proxy_func; \
+    typedef prefix return_value (*_JG_CONCAT2(function_name, _proxy_func_t))(__VA_ARGS__) suffix; \
+    extern _JG_CONCAT2(function_name, _proxy_func_t) _JG_CONCAT2(function_name, _proxy_func); \
     _MOCK_PROXY_LOCK_DECLARE_MUTEX_EXTERN_VARIABLE(function_name,); \
     namespace { _MOCK_PREAMBLE(prefix, suffix, return_value, function_name,,,, __VA_ARGS__); \
     _MOCK_FUNCTION(_MOCK_BODY, prefix, suffix, return_value, function_name, _proxy,,, __VA_ARGS__); }
@@ -693,8 +694,8 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
 ///
 /// @see MOCK_PROXY, MOCK_PROXY_OVERLOAD, MOCK_OVERLOAD
 #define MOCK_PROXY_OVERLOAD_SUBJECT(prefix, suffix, return_value, function_name, overload_suffix, ...) \
-    typedef prefix return_value (*function_name ## overload_suffix ## _proxy_func_t)(__VA_ARGS__) suffix; \
-    extern function_name ## overload_suffix ## _proxy_func_t function_name ## overload_suffix ## _proxy_func; \
+    typedef prefix return_value (*_JG_CONCAT3(function_name, overload_suffix, _proxy_func_t))(__VA_ARGS__) suffix; \
+    extern _JG_CONCAT3(function_name, overload_suffix, _proxy_func_t) _JG_CONCAT3(function_name, overload_suffix, _proxy_func); \
     _MOCK_PROXY_LOCK_DECLARE_MUTEX_EXTERN_VARIABLE(function_name, overload_suffix); \
     namespace { _MOCK_PREAMBLE(prefix, suffix, return_value, function_name,, overload_suffix,, __VA_ARGS__); \
     _MOCK_FUNCTION(_MOCK_BODY, prefix, suffix, return_value, function_name, overload_suffix ## _proxy, overload_suffix,, __VA_ARGS__) }
@@ -718,7 +719,7 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
 #define MOCK_PROXY_INIT(function_name) \
     MOCK_RESET(function_name); \
     _MOCK_PROXY_LOCK_GUARD(function_name,); \
-    jg::state_scope_value _JG_CONCAT(scope_, __LINE__)(function_name ## _proxy_func, function_name ## _proxy, nullptr)
+    jg::state_scope_value _JG_CONCAT(scope_, __LINE__)(_JG_CONCAT2(function_name, _proxy_func), _JG_CONCAT2(function_name, _proxy), nullptr)
 
 /// @macro MOCK_PROXY_OVERLOAD_INIT
 ///
@@ -726,4 +727,4 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
 #define MOCK_PROXY_OVERLOAD_INIT(function_name, overload_suffix) \
     MOCK_OVERLOAD_RESET(function_name, overload_suffix); \
     _MOCK_PROXY_LOCK_GUARD(function_name, overload_suffix); \
-    jg::state_scope_value _JG_CONCAT(scope_, __LINE__)(function_name ## overload_suffix ## _proxy_func, function_name ## overload_suffix ## _proxy, nullptr)
+    jg::state_scope_value _JG_CONCAT(scope_, __LINE__)(_JG_CONCAT3(function_name, overload_suffix, _proxy_func), _JG_CONCAT3(function_name, overload_suffix, _proxy), nullptr)
