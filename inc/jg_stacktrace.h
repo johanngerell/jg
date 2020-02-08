@@ -124,8 +124,6 @@ inline std::vector<stack_frame> stack_trace::capture() const
             {
                 IMAGEHLP_LINE64 line{};
                 line.SizeOfStruct = sizeof(line);
-                line.FileName = "";
-                line.LineNumber = 0;
                 DWORD line_displacement = 0;
                 
                 SymGetLineFromAddr64(m_process, address, &line_displacement, &line);
