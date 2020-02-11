@@ -13,10 +13,10 @@
 // These mocking macros are defined and documented at the bottom of this file:
 //
 //   - JG_MOCK
-//   - JG_MOCK_RESET
+//   - JG_MOCK_REF
 //
 //   - JG_MOCK_OVERLOAD
-//   - JG_MOCK_OVERLOAD_RESET
+//   - JG_MOCK_OVERLOAD_REF
 //
 //   - JG_MOCK_PROXY
 //   - JG_MOCK_PROXY_SUBJECT
@@ -198,6 +198,8 @@ struct mock_info final : mock_info_return<T>, mock_info_parameters<sizeof...(Par
     bool                        called() const { return m_count > 0; }
     std::string                 prototype() const { return m_prototype; }
 
+    void reset() { *this = mock_info(m_prototype); }
+
 private:
     template <typename, typename>
     friend struct mock_impl;
@@ -283,6 +285,12 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
 } // namespace detail
 } // namespace jg
 
+// The variadic macro parameter count macros below are derived from these links:
+//
+// https://stackoverflow.com/questions/5530505/why-does-this-variadic-argument-count-macro-fail-with-vc
+// https://stackoverflow.com/questions/26682812/argument-counting-macro-with-zero-arguments-for-visualstudio
+// https://stackoverflow.com/questions/9183993/msvc-variadic-macro-expansion?rq=1
+
 #define _JG_CONCAT3(x, y, z) x ## y ## z
 #define _JG_CONCAT2(x, y) x ## y
 #define _JG_CONCAT(x, y) _JG_CONCAT2(x, y)
@@ -304,11 +312,8 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
 #define _JG_MOCK_PREAMBLE(prefix, suffix, ret, function_name, function_name_suffix, overload_suffix, body_extra, ...) \
     jg::detail::mock_info<ret, __VA_ARGS__> _JG_CONCAT3(function_name, overload_suffix, _) {#ret " " #function_name "(" #__VA_ARGS__ ") " #suffix}
 
-// The variadic macro parameter count macros below are derived from these links:
-//
-// https://stackoverflow.com/questions/5530505/why-does-this-variadic-argument-count-macro-fail-with-vc
-// https://stackoverflow.com/questions/26682812/argument-counting-macro-with-zero-arguments-for-visualstudio
-// https://stackoverflow.com/questions/9183993/msvc-variadic-macro-expansion?rq=1
+#define _JG_MOCK_PREAMBLE_EXTERN(prefix, suffix, ret, function_name, function_name_suffix, overload_suffix, body_extra, ...) \
+    extern jg::detail::mock_info<ret, __VA_ARGS__> _JG_CONCAT3(function_name, overload_suffix, _);
 
 #define _JG_MOCK_FUNCTION_PARAMS_DECL_FIRST_0()
 #define _JG_MOCK_FUNCTION_PARAMS_DECL_FIRST_1(T1) T1
@@ -363,7 +368,7 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
     return proxy_func ? proxy_func(_JG_MOCK_FUNCTION_PARAMS_CALL(__VA_ARGS__)) : ret()
 
 #define _JG_MOCK_FUNCTION(body_macro, prefix, suffix, ret, function_name, function_name_suffix, overload_suffix, body_extra, ...) \
-    prefix ret _JG_CONCAT3(function_name, function_name_suffix,)(_JG_MOCK_FUNCTION_PARAMS_DECL_BOTH(__VA_ARGS__)) suffix \
+    prefix ret _JG_CONCAT2(function_name, function_name_suffix)(_JG_MOCK_FUNCTION_PARAMS_DECL_BOTH(__VA_ARGS__)) suffix \
     { body_macro(prefix, suffix, ret, function_name, function_name_suffix, overload_suffix, body_extra, __VA_ARGS__); }
 
 #ifdef JG_MOCK_ENABLE_PROXY_LOCK
@@ -508,13 +513,14 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
     _JG_MOCK_PREAMBLE(prefix, suffix, return_type, function_name,,,, __VA_ARGS__); \
     _JG_MOCK_FUNCTION(_JG_MOCK_BODY, prefix, suffix, return_type, function_name,,,, __VA_ARGS__)
 
-/// @macro JG_MOCK_RESET
+/// @macro JG_MOCK_REF
 ///
-/// Resets the "mock info" state for the named function, if that's needed in a test.
-/// Counters are set to zero, and return value, parameters, and the "lambda implementation"
-/// are are cleared.
-#define JG_MOCK_RESET(function_name) \
-    _JG_CONCAT2(function_name, _) = decltype(_JG_CONCAT2(function_name, _))(_JG_CONCAT2(function_name, _).prototype())
+/// Makes an `extern` declaration of the "mock info" defined by a corresponding
+/// `JG_MOCK` used in another translation unit. This makes it possible to only have
+/// one definition of a mocked function in an entire test program, and using its "mock info"
+/// in other translation units.
+#define JG_MOCK_REF(prefix, suffix, return_type, function_name, ...) \
+    _JG_MOCK_PREAMBLE_EXTERN(prefix, suffix, return_type, function_name,,,, __VA_ARGS__);
 
 /// @macro JG_MOCK_OVERLOAD
 ///
@@ -552,11 +558,14 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
     _JG_MOCK_PREAMBLE(prefix, suffix, return_type, function_name,, overload_suffix,, __VA_ARGS__); \
     _JG_MOCK_FUNCTION(_JG_MOCK_BODY, prefix, suffix, return_type, function_name,, overload_suffix,, __VA_ARGS__)
 
-/// @macro JG_MOCK_OVERLOAD_RESET
+/// @macro JG_MOCK_OVERLOAD_REF
 ///
-/// Resets the "mock info" state for the named overloaded function, if that's needed in a test.
-#define JG_MOCK_OVERLOAD_RESET(function_name, overload_suffix) \
-    _JG_CONCAT3(function_name, overload_suffix, _) = decltype(_JG_CONCAT3(function_name, overload_suffix, _))(_JG_CONCAT3(function_name, overload_suffix, _).prototype())
+/// Makes an `extern` declaration of the "mock info" defined by a corresponding
+/// `JG_MOCK_OVERLOAD` used in another translation unit. This makes it possible to only have
+/// one definition of a mocked function overload in an entire test program, and using its "mock info"
+/// in other translation units.
+#define JG_MOCK_OVERLOAD_REF(prefix, suffix, return_type, function_name, overload_suffix, ...) \
+    _JG_MOCK_PREAMBLE_EXTERN(prefix, suffix, return_type, function_name,, overload_suffix,, __VA_ARGS__);
 
 /// @macro JG_MOCK_PROXY
 ///
@@ -736,7 +745,7 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
 ///
 /// @see JG_MOCK, JG_MOCK_PROXY, JG_MOCK_PROXY_SUBJECT
 #define JG_MOCK_PROXY_INIT(function_name) \
-    JG_MOCK_RESET(function_name); \
+    _JG_CONCAT2(function_name, _).reset(); \
     _JG_MOCK_PROXY_LOCK_GUARD(function_name,); \
     jg::state_scope_value<_JG_CONCAT2(function_name, _proxy_func_t)> \
         _JG_CONCAT(scope_, __LINE__)(_JG_CONCAT2(function_name, _proxy_func), _JG_CONCAT2(function_name, _proxy), nullptr)
@@ -745,17 +754,17 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
 ///
 /// @see JG_MOCK_PROXY_INIT
 #define JG_MOCK_PROXY_OVERLOAD_INIT(function_name, overload_suffix) \
-    JG_MOCK_OVERLOAD_RESET(function_name, overload_suffix); \
+    _JG_CONCAT3(function_name, overload_suffix, _).reset(); \
     _JG_MOCK_PROXY_LOCK_GUARD(function_name, overload_suffix); \
     jg::state_scope_value<_JG_CONCAT2(function_name, overload_suffix, _proxy_func_t)> \
         _JG_CONCAT(scope_, __LINE__)(_JG_CONCAT3(function_name, overload_suffix, _proxy_func), _JG_CONCAT3(function_name, overload_suffix, _proxy), nullptr)
 
 #ifdef JG_MOCK_ENABLE_SHORT_NAMES
     #define MOCK                        JG_MOCK
-    #define MOCK_RESET                  JG_MOCK_RESET
+    #define MOCK_REF                    JG_MOCK_REF
     //
     #define MOCK_OVERLOAD               JG_MOCK_OVERLOAD
-    #define MOCK_OVERLOAD_RESET         JG_MOCK_OVERLOAD_RESET
+    #define MOCK_OVERLOAD_REF           JG_MOCK_OVERLOAD_REF
     //
     #define MOCK_PROXY                  JG_MOCK_PROXY
     #define MOCK_PROXY_SUBJECT          JG_MOCK_PROXY_SUBJECT
