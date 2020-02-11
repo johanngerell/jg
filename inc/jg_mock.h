@@ -3,10 +3,6 @@
 #include <cassert>
 #include <functional>
 #include <string>
-#ifdef JG_MOCK_ENABLE_PROXY_LOCK
-#include <mutex>
-#endif
-#include "jg_state_scope.h"
 #include "jg_stacktrace.h"
 
 //
@@ -18,15 +14,9 @@
 //   - JG_MOCK_OVERLOAD
 //   - JG_MOCK_OVERLOAD_REF
 //
-//   - JG_MOCK_PROXY
-//   - JG_MOCK_PROXY_SUBJECT
-//   - JG_MOCK_PROXY_INIT
-//
 // Compilation flags
 //
 //   - JG_MOCK_ENABLE_SHORT_NAMES: Enables mocking macros named without the "JG_" prefix.
-//   - JG_MOCK_ENABLE_PROXY_LOCK:  Enables locked access to a proxy and its auxiliary data in the same
-//                                 scope as JG_MOCK_PROXY_INIT or JG_MOCK_PROXY_OVERLOAD_INIT.
 //
 
 //
@@ -363,26 +353,9 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
 #define _JG_MOCK_BODY(prefix, suffix, ret, function_name, function_name_suffix, overload_suffix, body_extra, ...) \
     return jg::detail::mock_impl<ret, decltype(_JG_CONCAT3(function_name, overload_suffix, _))>(_JG_CONCAT3(function_name, overload_suffix, _)).impl(_JG_MOCK_FUNCTION_PARAMS_CALL(__VA_ARGS__))
 
-#define _JG_MOCK_BODY_PROXY(prefix, suffix, ret, function_name, function_name_suffix, overload_suffix, body_extra, ...) \
-    auto proxy_func = jg::detail::debug_check_ptr(_JG_CONCAT3(function_name, overload_suffix, body_extra) ## _func); \
-    return proxy_func ? proxy_func(_JG_MOCK_FUNCTION_PARAMS_CALL(__VA_ARGS__)) : ret()
-
 #define _JG_MOCK_FUNCTION(body_macro, prefix, suffix, ret, function_name, function_name_suffix, overload_suffix, body_extra, ...) \
     prefix ret _JG_CONCAT2(function_name, function_name_suffix)(_JG_MOCK_FUNCTION_PARAMS_DECL_BOTH(__VA_ARGS__)) suffix \
     { body_macro(prefix, suffix, ret, function_name, function_name_suffix, overload_suffix, body_extra, __VA_ARGS__); }
-
-#ifdef JG_MOCK_ENABLE_PROXY_LOCK
-#define _JG_MOCK_PROXY_LOCK_GUARD(function_name, overload_suffix) \
-    std::lock_guard<std::mutex> _JG_CONCAT(lock_, __LINE__)(_JG_CONCAT3(function_name, overload_suffix, _mutex))
-#define _JG_MOCK_PROXY_LOCK_DECLARE_MUTEX_VARIABLE(function_name, overload_suffix) \
-    std::mutex _JG_CONCAT3(function_name, overload_suffix, _mutex)
-#define _JG_MOCK_PROXY_LOCK_DECLARE_MUTEX_EXTERN_VARIABLE(function_name, overload_suffix) \
-    extern std::mutex _JG_CONCAT3(function_name, overload_suffix, _mutex)
-#else
-#define _JG_MOCK_PROXY_LOCK_GUARD(function_name, overload_suffix)
-#define _JG_MOCK_PROXY_LOCK_DECLARE_MUTEX_VARIABLE(function_name, overload_suffix)
-#define _JG_MOCK_PROXY_LOCK_DECLARE_MUTEX_EXTERN_VARIABLE(function_name, overload_suffix)
-#endif
 
 // --------------------------- Implementation details go above this line ---------------------------
 
@@ -567,210 +540,10 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
 #define JG_MOCK_OVERLOAD_REF(prefix, suffix, return_type, function_name, overload_suffix, ...) \
     _JG_MOCK_PREAMBLE_EXTERN(prefix, suffix, return_type, function_name,, overload_suffix,, __VA_ARGS__);
 
-/// @macro JG_MOCK_PROXY
-///
-/// Defines a free function that *needs* to be controlled or mocked in unit tests, and auxiliary data that
-/// makes it possible to forward all calls to said function (the "proxy") to another mocked function (the
-/// "subject") that *is* controlled in unit tests.
-///
-/// Example scenario: Assume that this free function from the global namespace (can also be declared in a
-/// named namespace) is called from some tested entity:
-///
-///     const char* find_by_id(int id) noexcept;
-///
-/// The simplest way we can mock that function in a unit test is by using the `JG_MOCK` macro. (If the function
-/// is declared in a named namespace, then `JG_MOCK` must be in the same namespace):
-///
-///     JG_MOCK(, noexcept, const char*, find_by_id, int);
-///
-/// Since a function can only be defined once, if that function needs to be mocked in more than one unit
-/// test translation unit, then the `JG_MOCK` macro is insufficient. Each usage of it will add a definition
-/// of the function, which by the standard is Undefined Behavior. This is when using the `JG_MOCK_PROXY` macro
-/// family is required.
-///
-/// Instead of using `JG_MOCK` in multiple unit test translation unit and getting multiple defined functions,
-/// the macro `JG_MOCK_PROXY` is used in *one* translation unit (preferrably one without any unit tests) and
-/// `JG_MOCK_PROXY_SUBJECT` is used in *all* unit test translation units. By combining that with
-/// `JG_MOCK_PROXY_INIT` in tests where the free function is called, we get thread safe mocked access to the
-/// same auxiliary unit test data as the `JG_MOCK` macro gives.
-///
-/// The "proxying" works like this, a bit simplified:
-///
-///   1. `JG_MOCK_PROXY` defines the function we need to mock (the "proxy"), plus a pointer to a function with
-///      the same signature (the "subject"). If the function pointer points at a subject function when the
-///      proxy function is called, then the call is forwarded to the subject function.
-///   2. `JG_MOCK_PROXY_SUBJECT` works exactly as the `JG_MOCK` macro, in that it defines a mocked function and
-///      auxiliary data that can be used in unit tests to query and control the function behavior. The
-///      mocked function is just altered a bit to be callable as a subject function by the proxy function.
-///   3. `JG_MOCK_PROXY_INIT` will, in the scope it's used, set the subject function pointer from `JG_MOCK_PROXY`
-///      to point at the mocked function from `JG_MOCK_PROXY_SUBJECT`, so that all calls to the original proxy
-///      function are forwarded to the subject function, which we can control and query in unit tests via its
-///      auxiliary mock data.
-///
-/// @see JG_MOCK, JG_MOCK_PROXY_SUBJECT, JG_MOCK_PROXY_INIT
-///
-/// @example Typical usage
-///
-///     -------------
-///     no_tests.cpp:
-///     -------------
-///
-///     // The free function that gets called in the tested entities in test1.cpp and test2.cpp.
-///     JG_MOCK_PROXY(, noexcept, const char*, find_by_id, int);
-///
-///     -----------
-///     tests1.cpp:
-///     -----------
-///
-///     // The mocked subject function that gets called by `find_by_id` in no_tests.cpp.
-///     JG_MOCK_PROXY_SUBJECT(, noexcept, const char*, find_by_id, int);
-///
-///     TEST("tested entity can do its job")
-///     {
-///         // Connects the `find_by_id` proxy function in no_tests.cpp to the mocked subject function in
-///         // tests1.cpp. Calling `find_by_id` concurrently in tests2.cpp on another thread and using its
-///         // auxiliary mock data for controlling and querying it is safe in the same scope as
-///         // `JG_MOCK_PROXY_INIT` and after its usage there.
-///         JG_MOCK_PROXY_INIT(find_by_id);
-///     
-///         // Whenever `find_by_id` is called by the tested entity, it always returns "Donald Duck".
-///         find_by_id_.result = "Donald Duck";
-///     
-///         // Depends on `find_by_id`.
-///         some_tested_entity tested_entity;
-///     
-///         TEST_ASSERT(tested_entity.can_do_its_job()); // Did it work?
-///         TEST_ASSERT(find_by_id_.called());           // Did the tested entity even call it?
-///         TEST_ASSERT(find_by_id_.param<1>() < 4711);  // Did the tested entity pass it a valid id?
-///     }
-///
-///     -----------
-///     tests2.cpp:
-///     -----------
-///
-///     // The mocked subject function that gets called by `find_by_id` in no_tests.cpp.
-///     JG_MOCK_PROXY_SUBJECT(, noexcept, const char*, find_by_id, int);
-///
-///     TEST("tested entity can't do its job")
-///     {
-///         // Connects the `find_by_id` proxy function in no_tests.cpp to the mocked subject function in
-///         // tests2.cpp. Calling `find_by_id` concurrently in tests1.cpp on another thread and using its
-///         // auxiliary mock data for controlling and querying it is safe in the same scope as
-///         // `JG_MOCK_PROXY_INIT` and after its usage there.
-///         JG_MOCK_PROXY_INIT(find_by_id);
-///     
-///         // Whenever `find_by_id` is called by the tested entity, it always returns `nullptr`.
-///         find_by_id_.result = nullptr;
-///     
-///         // Depends on `find_by_id`.
-///         some_tested_entity tested_entity;
-///     
-///         TEST_ASSERT(!tested_entity.can_do_its_job()); // Did it fail?
-///         TEST_ASSERT(find_by_id_.called());            // Did the tested entity even call it?
-///         TEST_ASSERT(find_by_id_.param<1>() < 4711);   // Did the tested entity pass it a valid id?
-///     }
-///
-/// @param prefix `static`, etc. Can be left empty if the mocked function supports it.
-/// @param suffix `noexcept`, etc. Can be left empty if the mocked function supports it.
-/// @param return_type The type of the return value, or `void`.
-/// @param function_name The name of the mocked function.
-/// @param variadic The variadic parameter list holds the parameter types of the mocked function, if any.
-#define JG_MOCK_PROXY(prefix, suffix, return_type, function_name, ...) \
-    typedef prefix return_type (*_JG_CONCAT2(function_name, _proxy_func_t))(__VA_ARGS__) suffix; \
-    _JG_CONCAT2(function_name, _proxy_func_t) _JG_CONCAT2(function_name, _proxy_func) = nullptr; \
-    _JG_MOCK_PROXY_LOCK_DECLARE_MUTEX_VARIABLE(function_name,); \
-    _JG_MOCK_FUNCTION(_JG_MOCK_BODY_PROXY, prefix, suffix, return_type, function_name,,, _proxy, __VA_ARGS__)
-
-/// @macro JG_MOCK_PROXY_OVERLOAD
-///
-/// Defines an overload of a free or static member function, with auxiliary
-/// data ("mock info") meant to be used in unit testing.
-///
-/// @see JG_MOCK_PROXY, JG_MOCK_OVERLOAD
-#define JG_MOCK_PROXY_OVERLOAD(prefix, suffix, return_type, function_name, overload_suffix, ...) \
-    typedef prefix return_type (*_JG_CONCAT3(function_name, overload_suffix, _proxy_func_t))(__VA_ARGS__) suffix; \
-    _JG_CONCAT3(function_name, overload_suffix, _proxy_func_t) _JG_CONCAT3(function_name, overload_suffix, _proxy_func) = nullptr; \
-    _JG_MOCK_PROXY_LOCK_DECLARE_MUTEX_VARIABLE(function_name, overload_suffix); \
-    _JG_MOCK_FUNCTION(_JG_MOCK_BODY_PROXY, prefix, suffix, return_type, function_name,, overload_suffix, _proxy, __VA_ARGS__)
-
-/// @macro JG_MOCK_PROXY_SUBJECT
-///
-/// Works exactly like `JG_MOCK`, with the difference that `JG_MOCK_PROXY_SUBJECT` defines a mocked subject
-/// function to be used with a proxy function from `JG_MOCK_PROXY`.
-///
-/// @see JG_MOCK, JG_MOCK_PROXY, JG_MOCK_PROXY_INIT
-///
-/// @param prefix Set to the same as for the matching JG_MOCK_PROXY.
-/// @param suffix Set to the same as for the matching JG_MOCK_PROXY.
-/// @param return_type Set to the same as for the matching JG_MOCK_PROXY.
-/// @param function_name Set to the same as for the matching JG_MOCK_PROXY.
-/// @param variadic Set to the same as for the matching JG_MOCK_PROXY.
-#define JG_MOCK_PROXY_SUBJECT(prefix, suffix, return_type, function_name, ...) \
-    typedef prefix return_type (*_JG_CONCAT2(function_name, _proxy_func_t))(__VA_ARGS__) suffix; \
-    extern _JG_CONCAT2(function_name, _proxy_func_t) _JG_CONCAT2(function_name, _proxy_func); \
-    _JG_MOCK_PROXY_LOCK_DECLARE_MUTEX_EXTERN_VARIABLE(function_name,); \
-    namespace \
-    { \
-        _JG_MOCK_PREAMBLE(prefix, suffix, return_type, function_name,,,, __VA_ARGS__); \
-        _JG_MOCK_FUNCTION(_JG_MOCK_BODY, prefix, suffix, return_type, function_name, _proxy,,, __VA_ARGS__); \
-    }
-
-/// @macro JG_MOCK_PROXY_OVERLOAD_SUBJECT
-///
-/// @see JG_MOCK_PROXY, JG_MOCK_PROXY_OVERLOAD, JG_MOCK_OVERLOAD
-#define JG_MOCK_PROXY_OVERLOAD_SUBJECT(prefix, suffix, return_type, function_name, overload_suffix, ...) \
-    typedef prefix return_type (*_JG_CONCAT3(function_name, overload_suffix, _proxy_func_t))(__VA_ARGS__) suffix; \
-    extern _JG_CONCAT3(function_name, overload_suffix, _proxy_func_t) _JG_CONCAT3(function_name, overload_suffix, _proxy_func); \
-    _JG_MOCK_PROXY_LOCK_DECLARE_MUTEX_EXTERN_VARIABLE(function_name, overload_suffix); \
-    namespace \
-    { \
-        _JG_MOCK_PREAMBLE(prefix, suffix, return_type, function_name,, overload_suffix,, __VA_ARGS__); \
-        _JG_MOCK_FUNCTION(_JG_MOCK_BODY, prefix, suffix, return_type, function_name, overload_suffix ## _proxy, overload_suffix,, __VA_ARGS__) \
-    }
-
-/// @macro JG_MOCK_PROXY_INIT
-///
-/// Connects a mocked subject function with a proxy function with the same name and signature. The connection
-/// between the two exists for the rest of the scope that `JG_MOCK_PROXY_INIT` is used in. It is safe to call the
-/// proxy function concurrently in different translation units and threads, and using the auxiliary data of its
-/// mocked subjects for controlling and querying them. However, `JG_MOCK_PROXY_INIT` usages cannot be nested.
-///
-/// This macro will effectively perform these actions:
-///
-///   1. Reset the state of the auxiliary data for the subject function.
-///   2. Wait for and lock access to the proxy/subject connection for the rest of the scope.
-///   3. Set up the connection so that the proxy function can be controlled and queried in unit tests,
-///      via the auxiliary data of the subject function.
-///   4. Remove the connection when leaving the scope.
-///
-/// @see JG_MOCK, JG_MOCK_PROXY, JG_MOCK_PROXY_SUBJECT
-#define JG_MOCK_PROXY_INIT(function_name) \
-    _JG_CONCAT2(function_name, _).reset(); \
-    _JG_MOCK_PROXY_LOCK_GUARD(function_name,); \
-    jg::state_scope_value<_JG_CONCAT2(function_name, _proxy_func_t)> \
-        _JG_CONCAT(scope_, __LINE__)(_JG_CONCAT2(function_name, _proxy_func), _JG_CONCAT2(function_name, _proxy), nullptr)
-
-/// @macro JG_MOCK_PROXY_OVERLOAD_INIT
-///
-/// @see JG_MOCK_PROXY_INIT
-#define JG_MOCK_PROXY_OVERLOAD_INIT(function_name, overload_suffix) \
-    _JG_CONCAT3(function_name, overload_suffix, _).reset(); \
-    _JG_MOCK_PROXY_LOCK_GUARD(function_name, overload_suffix); \
-    jg::state_scope_value<_JG_CONCAT2(function_name, overload_suffix, _proxy_func_t)> \
-        _JG_CONCAT(scope_, __LINE__)(_JG_CONCAT3(function_name, overload_suffix, _proxy_func), _JG_CONCAT3(function_name, overload_suffix, _proxy), nullptr)
-
 #ifdef JG_MOCK_ENABLE_SHORT_NAMES
-    #define MOCK                        JG_MOCK
-    #define MOCK_REF                    JG_MOCK_REF
+    #define MOCK              JG_MOCK
+    #define MOCK_REF          JG_MOCK_REF
     //
-    #define MOCK_OVERLOAD               JG_MOCK_OVERLOAD
-    #define MOCK_OVERLOAD_REF           JG_MOCK_OVERLOAD_REF
-    //
-    #define MOCK_PROXY                  JG_MOCK_PROXY
-    #define MOCK_PROXY_SUBJECT          JG_MOCK_PROXY_SUBJECT
-    #define MOCK_PROXY_INIT             JG_MOCK_PROXY_INIT
-    //
-    #define MOCK_PROXY_OVERLOAD         JG_MOCK_PROXY_OVERLOAD
-    #define MOCK_PROXY_OVERLOAD_SUBJECT JG_MOCK_PROXY_OVERLOAD_SUBJECT
-    #define MOCK_PROXY_OVERLOAD_INIT    JG_MOCK_PROXY_OVERLOAD_INIT
+    #define MOCK_OVERLOAD     JG_MOCK_OVERLOAD
+    #define MOCK_OVERLOAD_REF JG_MOCK_OVERLOAD_REF
 #endif
