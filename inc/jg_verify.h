@@ -31,7 +31,7 @@ inline void verify(bool condition)
 
 #ifdef JG_VERIFY_ENABLE_TERMINATE
     if (!condition)
-        terminate();
+        std::terminate();
 #else
     assert(condition);
 #endif
