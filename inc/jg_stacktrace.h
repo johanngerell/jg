@@ -103,7 +103,7 @@ inline std::vector<stack_frame> stack_trace::capture() const
     std::vector<stack_frame> symbols;
     std::vector<void*> stack(m_include_frame_count);
 
-    if (const auto frame_count = CaptureStackBackTrace(static_cast<DWORD>(m_skip_frame_count),
+    if (const auto frame_count = CaptureStackBackTrace(static_cast<DWORD>(m_skip_frame_count + 1),
                                                        static_cast<DWORD>(stack.size()),
                                                        stack.data(),
                                                        nullptr))
