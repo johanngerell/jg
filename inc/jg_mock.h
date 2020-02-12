@@ -1,9 +1,11 @@
 #pragma once
 
-#include <cassert>
+#include <type_traits>
+#include <tuple>
 #include <functional>
 #include <string>
-#include "jg_stacktrace.h"
+#include "jg_verify.h"
+#include "jg_string.h"
 
 //
 // These mocking macros are defined and documented at the bottom of this file:
@@ -70,41 +72,15 @@ struct mock_info_parameters<0>
 {
 };
 
-#ifdef NDEBUG
-inline void debug_check(bool) {}
-template <typename T>
-inline T* debug_check_ptr(T* ptr) { return ptr; }
-#else
-/// In release builds, this is a no-op. In debug builds, this asserts that `value` is `true`,
-/// and a stack trace is output if it isn't.
-inline void debug_check(bool value)
-{
-    if (!value)
-        for (const auto& stack_frame : jg::stack_trace().include_frame_count(10).skip_frame_count(1).capture())
-            std::cout << stack_frame << "\n";
-
-    assert(value);
-}
-/// In release builds, this is a no-op. In debug builds, this asserts that `ptr` isn't `nullptr`,
-/// and a stack trace is output if it is.
-template <typename T>
-inline T* debug_check_ptr(T* ptr)
-{
-    debug_check(ptr);
-    return ptr;
-}
-#endif
-
+// Verifies that the wrapped value is set before it gets used.
 template <typename T, typename Enable = void>
-class checked_value;
+class verified;
 
-/// Asserts that the wrapped value is set before it's being referenced.
-/// @note The check is only done when the preprocessor macro NDEBUG is not defined
 template <typename T>
-class checked_value<T, std::enable_if_t<std::is_reference_v<T>>> final
+class verified<T, std::enable_if_t<std::is_reference_v<T>>> final
 {
 public:
-    checked_value& operator=(T other)
+    verified& operator=(T other)
     {
         value = &other;
         assigned = true;
@@ -113,7 +89,7 @@ public:
 
     operator T()
     {
-        debug_check(assigned);
+        verify(assigned);
         return *value;
     }
 
@@ -122,20 +98,18 @@ private:
     bool assigned = false;
 };
 
-/// Asserts that the wrapped value is set before it's being referenced.
-/// @note The check is only done when the preprocessor macro NDEBUG is not defined
 template <typename T>
-class checked_value<T, std::enable_if_t<!std::is_reference_v<T>>> final
+class verified<T, std::enable_if_t<!std::is_reference_v<T>>> final
 {
 public:
-    checked_value& operator=(const T& other)
+    verified& operator=(const T& other)
     {
         value = other;
         assigned = true;
         return *this;
     }
 
-    checked_value& operator=(T&& other)
+    verified& operator=(T&& other)
     {
         value = std::move(other);
         assigned = true;
@@ -144,7 +118,7 @@ public:
 
     operator T()
     {
-        debug_check(assigned);
+        verify(assigned);
         return value;
     }
 
@@ -160,8 +134,9 @@ private:
 template <typename T>
 struct mock_info_return
 {
-    // Checked, to make sure that a test doesn't use the result without first setting it.
-    checked_value<T> result;
+    // Unless NDEBUG is defined at compile time, the result is verified to make
+    // sure that a test doesn't use it without first setting it.
+    verified<T> result;
 };
 
 // The "mock info" for a mocked function that returns `void` has no `result` member, and
@@ -177,7 +152,7 @@ struct mock_info final : mock_info_return<T>, mock_info_parameters<sizeof...(Par
 {
     mock_info(std::string prototype)
         : m_count(0)
-        , m_prototype(std::move(prototype))
+        , m_prototype(trim(prototype, " "))
     {}
 
     std::function<T(Params...)> func;
@@ -185,7 +160,7 @@ struct mock_info final : mock_info_return<T>, mock_info_parameters<sizeof...(Par
     bool                        called() const { return m_count > 0; }
     std::string                 prototype() const { return m_prototype; }
 
-    void reset() { *this = mock_info(m_prototype); }
+    void                        reset() { *this = mock_info(m_prototype); }
 
 private:
     template <typename, typename>
@@ -474,25 +449,76 @@ struct mock_impl final : mock_impl_base<T, mock_impl<T, TMockInfo>>
 ///     .                                .
 ///     TN                               foo_.param<N>()   // set by the mocking framework
 ///
-/// @param prefix `static`, `virtual`, etc. Can be left empty if the mocked function supports it.
-/// @param suffix `override`, `const`, `noexcept`, etc. Can be left empty if the mocked function supports it.
+/// @param prefix "Things to the left in a function declaration". For instance `static`, `virtual`, etc. - often empty.
+/// @param suffix "Things to the right in a function declaration". For instance `override`, `const`, `noexcept`, etc. - often empty.
+/// @param overload_suffix An arbitrary suffix added to the "mock info" name of overloaded functions to discriminate between them in tests - often empty.
 /// @param return_type The type of the return value, or `void`.
 /// @param function_name The name of the mocked function.
-/// @param variadic The variadic parameter list holds the parameter types of the mocked function, if any.
+/// @param variadic Variadic parameter list of parameter types for the mocked function, if any.
 #define JG_MOCK(prefix, suffix, overload_suffix, return_type, function_name, ...) \
     _JG_MOCK_PREAMBLE(prefix, suffix, return_type, function_name,, overload_suffix,, __VA_ARGS__); \
     _JG_MOCK_FUNCTION(_JG_MOCK_BODY, prefix, suffix, return_type, function_name,, overload_suffix,, __VA_ARGS__)
 
 /// @macro JG_MOCK_REF
 ///
-/// Makes an `extern` declaration of the "mock info" defined by a corresponding
-/// `JG_MOCK` used in another translation unit. This makes it possible to only have
-/// one definition of a mocked function in an entire test program, and using its "mock info"
-/// in other translation units.
+/// Makes an `extern` declaration of the "mock info" defined by a corresponding `JG_MOCK` used in another
+/// translation unit. This makes it possible to only have one definition of a mocked function in an entire
+/// test program, and using its "mock info" in other translation units.
+/// 
+/// @example Mocking the free function `foo* foolib_create(const char* id)` in one translation unit
+///          (test file) and using it in two other translation units (test files).
+/// 
+///   * foolib_mocks.cpp
+/// 
+///         #include <foolib.h>
+///         #include <jg/jg_mock.h>
+///     
+///         MOCK(,,, foo*, foolib_create, const char*);
+/// 
+///   * flubber_tests.cpp
+/// 
+///         #include <foolib.h>
+///         #include <jg/jg_mock.h>
+///         #include <flubber.h>
+///     
+///         MOCK_REF(,,, foo*, foolib_create, const char*);
+///     
+///         TEST("A flubber can do it")
+///         {
+///             foo dummy_result;
+///             foolib_create_.reset();
+///             foolib_create_.result = reinterpret_cast<foo*>(&dummy_result);
+///     
+///             flubber f; // System under test - depends on foolib
+///             
+///             TEST_ASSERT(f.do_it()); // If foolib_create succeeds, flubber can do it
+///             TEST_ASSERT(foolib_create_.called());
+///             TEST_ASSERT(foolib_create_.param<1>() != nullptr);
+///         }
+/// 
+///   * fiddler_tests.cpp
+/// 
+///         #include <foolib.h>
+///         #include <jg/jg_mock.h>
+///         #include <fiddler.h>
+///     
+///         MOCK_REF(,,, foo*, foolib_create, const char*);
+///     
+///         TEST("A fiddler can't play")
+///         {
+///             foolib_create_.reset();
+///             foolib_create_.result = nullptr;
+///     
+///             fiddler f; // System under test - depends on foolib
+///             
+///             TEST_ASSERT(!f.play()); // If foolib_create fails, fiddler can't play
+///             TEST_ASSERT(foolib_create_.called());
+///             TEST_ASSERT(foolib_create_.param<1>() != nullptr);
+///         }
 #define JG_MOCK_REF(prefix, suffix, overload_suffix, return_type, function_name, ...) \
     _JG_MOCK_PREAMBLE_EXTERN(prefix, suffix, return_type, function_name,, overload_suffix,, __VA_ARGS__);
 
 #ifdef JG_MOCK_ENABLE_SHORT_NAMES
-    #define MOCK     JG_MOCK
-    #define MOCK_REF JG_MOCK_REF
+#define MOCK     JG_MOCK
+#define MOCK_REF JG_MOCK_REF
 #endif
