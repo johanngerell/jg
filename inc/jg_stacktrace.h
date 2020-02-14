@@ -43,12 +43,10 @@ static inline std::ostream& operator<<(std::ostream& stream, const stack_frame& 
 }
 
 /// @example
-///     #ifndef NDEBUG
-///         if (broken_invariant)
-///            for (const auto& stack_frame :
-///                jg::stack_trace().include_frame_count(25).skip_frame_count(1).capture())
-///                    std::cout << stack_frame << "\n";
-///     #endif
+///     if (broken_invariant)
+///        for (const auto& stack_frame :
+///            jg::stack_trace().include_frame_count(25).skip_frame_count(1).capture())
+///                std::cout << stack_frame << "\n";
 class stack_trace final
 {
 public:
@@ -61,26 +59,31 @@ public:
     std::vector<stack_frame> capture() const;
 
 private:
-    void* m_process;
-    size_t m_skip_frame_count;
-    size_t m_include_frame_count;
+#ifdef _WIN32
+    void* m_process = nullptr;
+#endif
+    size_t m_skip_frame_count = 0;
+    size_t m_include_frame_count = 0;
 };
 
-#ifdef _MSC_VER
-
 inline stack_trace::stack_trace()
+#ifdef _WIN32
     : m_process(GetCurrentProcess())
-    , m_skip_frame_count()
-    , m_include_frame_count()
 {
     if (m_process)
         m_process = SymInitialize(m_process, NULL, TRUE) ? m_process : nullptr;
 }
+#else
+{
+}
+#endif
 
 inline stack_trace::~stack_trace()
 {
+#ifdef _WIN32
     if (m_process)
         SymCleanup(m_process);
+#endif
 }
 
 inline stack_trace& stack_trace::skip_frame_count(size_t count)
@@ -97,10 +100,11 @@ inline stack_trace& stack_trace::include_frame_count(size_t count)
 
 inline std::vector<stack_frame> stack_trace::capture() const
 {
+#ifdef _WIN32
     if (!m_process)
         return {};
 
-    std::vector<stack_frame> symbols;
+    std::vector<stack_frame> stack_frames;
     std::vector<void*> stack(m_include_frame_count);
 
     if (const auto frame_count = CaptureStackBackTrace(static_cast<DWORD>(m_skip_frame_count + 1),
@@ -108,7 +112,7 @@ inline std::vector<stack_frame> stack_trace::capture() const
                                                        stack.data(),
                                                        nullptr))
     {
-        symbols.reserve(frame_count);
+        stack_frames.reserve(frame_count);
         stack.resize(frame_count);
 
         SYMBOL_INFO_PACKAGE sip{};
@@ -127,40 +131,16 @@ inline std::vector<stack_frame> stack_trace::capture() const
                 DWORD line_displacement = 0;
                 
                 SymGetLineFromAddr64(m_process, address, &line_displacement, &line);
-                symbols.push_back({sip.si.Address, symbol_displacement, sip.si.Name,
-                                line.FileName, line.LineNumber, line_displacement});
+                stack_frames.push_back({sip.si.Address, symbol_displacement, sip.si.Name,
+                                        line.FileName, line.LineNumber, line_displacement});
             }
         }
     }
 
-    return symbols;
-}
-
+    return stack_frames;
 #else
-
-inline stack_trace::stack_trace()
-{
-}
-
-inline stack_trace::~stack_trace()
-{
-}
-
-inline stack_trace& stack_trace::skip_frame_count(size_t count)
-{
-    return *this;
-}
-
-inline stack_trace& stack_trace::include_frame_count(size_t count)
-{
-    return *this;
-}
-
-inline std::vector<stack_frame> stack_trace::capture() const
-{
     return {};
-}
-
 #endif
+}
 
 } // namespace jg
