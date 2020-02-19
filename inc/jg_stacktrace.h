@@ -100,11 +100,13 @@ inline stack_trace& stack_trace::include_frame_count(size_t count)
 
 inline std::vector<stack_frame> stack_trace::capture() const
 {
+    std::vector<stack_frame> stack_frames;
+    
 #ifdef _WIN32
+
     if (!m_process)
         return {};
 
-    std::vector<stack_frame> stack_frames;
     std::vector<void*> stack(m_include_frame_count);
 
     if (const auto frame_count = CaptureStackBackTrace(static_cast<DWORD>(m_skip_frame_count + 1),
@@ -137,10 +139,9 @@ inline std::vector<stack_frame> stack_trace::capture() const
         }
     }
 
-    return stack_frames;
-#else
-    return {};
 #endif
+
+    return stack_frames;
 }
 
 } // namespace jg
