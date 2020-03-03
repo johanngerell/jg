@@ -12,13 +12,12 @@ void download_config() noexcept;
 
 <!-- slide -->
 
-from these requirements
+with these requirements
 
-  * download the default app configuration file
-    from _\<remote place\>_
+  * download the default app configuration file from _\<remote place\>_
   * store the downloaded file at _\<local place\>_
 
-with these definitions
+and these definitions
 
 _\<remote place\>_
 : file server, http/ftp endpoints, etc.
@@ -28,8 +27,7 @@ _\<local place\>_
 
 <!-- slide -->
 
-now we want to unit test `download_config()`
-to make sure it does what it's supposed to do
+now we want to unit test `download_config()` to make sure it does what it's supposed to do
 
 <!-- slide -->
 
@@ -50,15 +48,15 @@ with ideally
 
 <!-- slide -->
 
-the external dependencies seems to be
+the external dependencies seem to be
 
- - the _thing_ that gets the remote file
- - the _thing_ that stores the local file
+  * the thing that gets the remote file
+  * the thing that stores the local file
 
 <!-- slide -->
 
 we know that because the only "external" calls we
-do in `download_config()` concerns those things
+do in `download_config()` concern those things
 
 <!-- slide -->
 
@@ -72,13 +70,11 @@ which is separately unit tested
 
 <!-- slide -->
 
-because `download_config()` doesn't need to
-know anything about the config file format
+because `download_config()` doesn't need to know anything about the config file format
 
 <!-- slide -->
 
-can we verify the correctness of `download_config()`
-by calling it in a unit test and check its side effects?
+can we verify the correctness of `download_config()` by calling it in a unit test and check its side effects?
 
 <!-- slide -->
 
@@ -90,21 +86,19 @@ void download_config() noexcept;
 
 <!-- slide -->
 
-so it _seems_ like we can't
-tell if it "succeeds"
+so it _seems_ like we can't tell if it "succeeds"
 
 <!-- slide -->
 
-also, it uses
+also, it uses the real
 
-  * the real "get the file thing"
-  * the "json validation thing"
-  * the real "store the file thing"
+  * "get the file thing"
+  * "json validation thing"
+  * "store the file thing"
 
 <!-- slide -->
 
-so it _seems_ like we can't
-call it in isolation in unit tests
+so it _seems_ like we can't call it in isolation in unit tests
 
 <!-- slide -->
 
@@ -118,37 +112,38 @@ dude
 
 <!-- slide -->
 
-sure, there are no _explicit_ side effects to
-observe (a return value or an exception)
+sure, there are no _explicit_ observable side effects: a return value or an exception
 
 <!-- slide -->
 
-but we can observe the _implicit_ side effects: 
-how external dependencies are used
+but we can observe the _implicit_ side effects: how external dependencies are used
 
 <!-- slide -->
 
-after all, even if there _was_ a
-success or failure return value
+after all, even if there _was_ a success or failure return value that we checked in a unit test
 
 <!-- slide -->
 
-all we could really be sure of if we checked that
-value in a unit test would be that `download_config()`
-_returned_ that specific value, not that it _actually_  did
-what it was supposed to do
+we wouldn't know for sure if `download_config()` actually did what it was supposed to do or not
 
 <!-- slide -->
 
-we need a way to check if `download_config()`
-succeeded or failed
+we would just know what `download_config()` told us it had done
 
 <!-- slide -->
 
-upon returning, `download_config()` has succeeded if
+> trust is good
+> verification is better
+>
+> / my military service drill sergeant
 
- * there exists a file in a special local place
- * the local file is identical to the remote file
+<!-- slide -->
+
+we need a way to check if `download_config()` succeeded or failed without asking it
+
+<!-- slide -->
+
+`download_config()` has succeeded if there exists a file in a special local place which is identical to a file in a special remote place
 
 <!-- slide -->
 
@@ -180,8 +175,7 @@ we can unit test this function if we mock
   * `is_valid_config()`
   * `store_local_config()`
 
-and check if a valid configuration returned
-from the first is passed to the last
+and check if a valid configuration returned from the first is passed to the last
 
 <!-- slide -->
 
@@ -225,44 +219,57 @@ TEST_CASE()
 
 <!-- slide -->
 
-that's sometimes good enough,
-but more often it's not
+that's sometimes good enough, but more often it's not
 
 <!-- slide -->
 
-as soon as we need to change the mock behavior
-between test cases, we need something better,
-more flexible
+as soon as we need to change the mock behavior between test cases, we need something better, more flexible
 
 <!-- slide -->
 
-when `download_config()` returns, the external
-dependencies might have been acted on and
-reacted in the following ways
+when `download_config()` returns, the external dependencies might have been acted on and reacted in a very specific set of ways
+
+<!-- slide -->
+
+again, the implementation
+
+```c++ {.line-numbers}
+void download_config() noexcept
+{
+    try
+    {
+        const std::string config = get_remote_config();
+
+        if (is_valid_config(config))
+            store_local_config(config);
+    }
+    catch(...) {}
+}
+```
 
 <!-- slide -->
 
 `get_remote_config()`
 
- * wasn't called at all
- * failed
- * succeeded with valid config file
- * succeeded with invalid config file
+  * wasn't called at all
+  * failed
+  * succeeded with valid config file
+  * succeeded with invalid config file
 
 <!-- slide -->
 
 `is_valid_config()`
 
- * wasn't called at all
- * called with valid config file
- * called with invalid config file
+  * wasn't called at all
+  * called with valid config file
+  * called with invalid config file
 
 <!-- slide -->
 
 `store_local_config()`
 
- * wasn't called at all
- * called with a config file
+  * wasn't called at all
+  * called with a config file
 
 <!-- slide -->
 
@@ -319,9 +326,7 @@ the first `TEST_CASE` attempt earlier is
 
 <!-- slide -->
 
-the additional flexibility we need in the mocks to
-use them efficiently in all four test cases can be
-added using `std::function`
+the additional flexibility we need in the mocks to use them efficiently in all four test cases can be added using `std::function`
 
 <!-- slide -->
 
@@ -374,17 +379,14 @@ TEST_CASE("3. happy path")
 
 <!-- slide -->
 
-we still do the same test assertions on the same
-data, but with better locality of the mock logic
+we still do the same test assertions on the same data, but with better locality of the mock logic
 
 <!-- slide -->
 
-after writing all four test cases with the new mock
-functions that use `std::function`, a structural
-pattern emerges
+after writing all four test cases with the new mock functions that use `std::function` and the auxiliary data that they use, that later gets test-asserted, a structural pattern emerges for the
 
-  * for the mock functions
-  * for their auxiliary data
+  * mock functions
+  * auxiliary data
 
 <!-- slide -->
 
@@ -431,8 +433,7 @@ void store_local_config(const std::string& config)
 
 <!-- slide -->
 
-or, more generally for a mocked function `foo` that
-returns `T` and takes the parameters `P1`, ..., `PN`
+or, more generally for a mocked function `foo` that returns `T` and takes the parameters `P1`, ..., `PN`
 
 ```c++ {.line-numbers}
 T foo(P1 p1, ..., PN pN)
@@ -465,8 +466,7 @@ we can also...
 
 <!-- slide -->
 
-...add a "call counter" - the boolean `called` is after all
-just the special case `count > 0`
+...add a "call counter" - `foo_called` is just the special case `foo_count > 0`
 
 ```c++ {.line-numbers}
 ...
@@ -482,9 +482,7 @@ T foo(P1 p1, ..., PN pN)
 
 <!-- slide -->
 
-...add the ability to just set a return value instead
-of assigning a callable to the `std::function`, if we
-don't need any complex logic
+...and the ability to just set a return value instead of assigning a callable to the `std::function`, if we don't need any complex logic
 
 ```c++ {.line-numbers}
 ...
@@ -502,9 +500,7 @@ T foo(P1 p1, ..., PN pN)
 
 <!-- slide -->
 
-...make a dedicated type `foo_aux` for the
-auxiliary data and create an instance
-`foo_` of it to use in tests
+...and make a dedicated type `foo_aux` for the auxiliary data and create an instance `foo_` of it to use in tests
 
 ```c++ {.line-numbers}
 struct foo_aux final
@@ -521,8 +517,7 @@ struct foo_aux final
 
 <!-- slide -->
 
-the mock function would then use its
-auxiliary data like this
+the mock function would then use its auxiliary data like this
 
 ```c++ {.line-numbers}
 T foo(P1 p1, ..., PN pN)
@@ -540,8 +535,7 @@ T foo(P1 p1, ..., PN pN)
 
 <!-- slide -->
 
-since the auxiliary data instance `foo_` is global,
-we need a way to reset its state between tests
+since the auxiliary data instance `foo_` is global, we also need a way to reset its state between tests
 
 ```c++ {.line-numbers}
 struct foo_aux final
@@ -554,11 +548,11 @@ struct foo_aux final
 
 <!-- slide -->
 
-how would our four test cases look if this kind
-of rich mocks with auxiliary data existed for
-the external dependecies?
+how would our four test cases look if this kind of rich mocks with auxiliary data existed for the external dependecies?
 
 <!-- slide -->
+
+like this
 
 ```c++ {.line-numbers}
 TEST_CASE("3. happy path")
@@ -581,11 +575,10 @@ TEST_CASE("3. happy path")
 
 <!-- slide -->
 
-if the test framework supports test case
-initialization, then it gets even cleaner
+it gets even cleaner if the test framework supports test case initialization
 
 ```c++ {.line-numbers}
-TEST_CASE_INIT() // runs before every test case
+TEST_CASE_INIT() // runs before every test case body
 {
     get_remote_config_.reset();
     is_valid_config_.reset();
@@ -607,8 +600,7 @@ TEST_CASE("3. happy path")
 
 <!-- slide -->
 
-that test case is easier to write, easier to read,
-and easier to reason about than our previous attempts
+test cases like that, with all inputs and outputs close to the action, are easier to write, read, and reason about
 
 <!-- slide -->
 
@@ -616,10 +608,7 @@ however...
 
 <!-- slide -->
 
-manually creating auxiliary data structures for
-every function we want to mock, and using all
-that data correctly in the mock functions will
-quickly become a hassle :(
+manually creating auxiliary data structures for every function we want to mock, and using all that data correctly in the mock functions will quickly become a hassle :(
 
 <!-- slide -->
 
@@ -635,10 +624,7 @@ bool is_valid_config(const std::string& config);
 
 <!-- slide -->
 
-it would be great if the mock function and
-its auxiliary data structure were generated
-automatically for us if we just wrote
-something like
+wouldn't it be great if the mock function and its auxiliary data structure were generated automatically for us if we just wrote something like
 
 ```c++ {.line-numbers}
 MOCK(bool, is_valid_config, const std::string&);
@@ -646,33 +632,28 @@ MOCK(bool, is_valid_config, const std::string&);
 
 <!-- slide -->
 
-that's exactly what the `jg::mock` library does
+that's exactly what the `jg::mock` library does with its `JG_MOCK` macro. some template metaprogramming makes sure that auxiliary data only includes
+
+  * `result` if a non-void return type is declared
+  * `param<N>` if any parameter type is declared
 
 <!-- slide -->
 
-`jg::mock` uses template metaprogramming to
-create auxiliary data that only uses
-
-  * `result` if the function returns a value
-  * `param<N>` if the function takes parameters
-
-which makes intellisense more helpful when
-writing tests that use auxiliary mock data
-
-<!-- slide -->
-
-`jg::mock` adds three optional parameters to its
-main macro `JG_MOCK`
-
-  * `prefix` and `suffix` adds things to "the left and
-    right" in the function prototype
-  * `overload_suffix` adds an arbitrary tag to the
-    auxiliary data name for overloaded functions
+`JG_MOCK` adds three optional parameters
 
 ```c++ {.line-numbers}
 JG_MOCK(prefix, suffix, overload_suffix,
         bool, is_valid_config, const std::string&);
 ```
+
+`prefix`
+: adds things "to the left" of the mock function prototype
+
+`suffix`
+: adds things "to the right" of the mock function prototype
+
+`overload_suffix`
+: adds an arbitrary tag to the auxiliary data name for overloaded functions
 
 <!-- slide -->
 
@@ -703,7 +684,7 @@ public:
 
 <!-- slide -->
 
-that mock function is functionally equivalent to this
+this is functionally equivalent
 
 ```c++ {.line-numbers}
 class mock_logger final : public logger
@@ -713,21 +694,16 @@ public:
 }
 ```
 
-but since `virtual` and `override` aren't required
-when declaring a virtual function override, omitting
-them makes mocks easier to write and read
+but since `virtual` and `override` aren't required when declaring a virtual function override, omitting them makes mocks easier to write and read
 
 <!-- slide -->
 
-when a "mock class" is used in tests, it's usually
-instantiated in every test case, which means
-that its auxiliary data is already reset
+when a "mock class" is used in tests, it's usually instantiated in every test case, which means that all auxiliary data in it is already reset
 
 ```c++ {.line-numbers}
 TEST_CASE("The tested entity logs when created")
 {
-    mock_logger logger;
-    // logger.log_info_.reset(); // redundant call - skip it
+    mock_logger logger; // no logger.log_info_.reset() is needed
 
     some_tested_entity sut(logger);
 
@@ -761,8 +737,7 @@ public:
 
 <!-- slide -->
 
-using auxiliary data for overloaded
-functions is done like this
+using auxiliary data for overloaded functions is done like this
 
 ```c++ {.line-numbers}
 TEST_CASE("The tested entity logs when created")
@@ -778,45 +753,30 @@ TEST_CASE("The tested entity logs when created")
 
 <!-- slide -->
 
-sometimes we want to mock free functions and
-use the mocks in more than one module or
-translation unit
+sometimes we want to mock free functions and use the mocks in more than one translation unit
 
 <!-- slide -->
 
-adding the same `JG_MOCK(...)` declaration in
-multiple modules or translation units defines
-the mock function multiple times
+adding the same `JG_MOCK(...)` declaration in multiple translation units defines the mock function multiple times
 
 <!-- slide -->
 
-a non-static C or C++ function that has multiple
-definitions in a program will at best cause linker
-errors and at worst exhibit Undefined Behavior
+but a non-static function that has multiple definitions in a program will at best cause linker errors and at worst exhibit undefined behavior
 
 <!-- slide -->
 
-`jg::mock` helps in this scenario by offering the
-`JG_MOCK_REF` macro, which creates an extern
-declaration of an identical `JG_MOCK` declaration
-made in another module or translation unit
+`jg::mock` helps in this scenario by offering the `JG_MOCK_REF` macro, which creates an extern declaration of an identical `JG_MOCK` declaration made in another module or translation unit
 
 <!-- slide -->
 
-the recommendation is to
+the recommendation is to add
 
-  * declare free function mocks with `JG_MOCK` in
-    `.cpp` files separate from the test case `.cpp` files
-    that refers to them with `JG_MOCK_REF`
-  * declare virtual function mocks in `.h` files that are
-    `#included` in the test case `.cpp` files
-
+  * free function mocks with `JG_MOCK` in dedicated `.cpp` files and reference them with `JG_MOCK_REF` in dedicated `.h` files that test case `.cpp` files can include
+  * virtual function mocks with `JG_MOCK` in dedicated `.h` files that test case `.cpp` files can include
+  
 <!-- slide -->
 
 compilation flags that affect `jg::mock`
 
 `JG_MOCK_ENABLE_SHORT_NAMES`
-: if defined, macro names without the
-  `JG_` prefix are enabled, so that `MOCK` and
-  `MOCK_REF` can be used instead of `JG_MOCK` and
-  `JG_MOCK_REF` 
+: if defined, macro names without the `JG_` prefix are enabled, so that `MOCK` and `MOCK_REF` can be used instead of `JG_MOCK` and `JG_MOCK_REF` 
