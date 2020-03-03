@@ -500,27 +500,30 @@ public:
 
 /// @macro JG_MOCK_REF
 ///
-/// Makes an `extern` declaration of the auxiliary data defined by a corresponding `JG_MOCK` used in another
-/// translation unit. This makes it possible to only have one definition of a mock function in an entire
-/// test program, and using its auxiliary data in other translation units.
+/// Makes an `extern` declaration of the auxiliary data defined by a corresponding usage of `JG_MOCK` in
+/// a .cpp file. This makes it possible to only have one definition of a mock function in an entire test
+/// program, and using its auxiliary data in other translation units.
 /// 
 /// Mocking the free function `foo* foolib_create(const char* id)` in one translation unit and using it in
 /// two other translation units can be done like this:
 /// 
 ///   * foolib_mocks.cpp
 /// 
-///         #include <foolib.h>
-///         #include <jg/jg_mock.h>
+///         #include "flubber_mocks.h"
 ///     
 ///         JG_MOCK(,,, foo*, foolib_create, const char*);
 /// 
-///   * flubber_tests.cpp
+///   * flubber_mocks.h
 /// 
 ///         #include <foolib.h>
 ///         #include <jg/jg_mock.h>
-///         #include <flubber.h>
 ///     
 ///         JG_MOCK_REF(,,, foo*, foolib_create, const char*);
+///
+///   * flubber_tests.cpp
+/// 
+///         #include <flubber.h>
+///         #include "foolib_mocks.h"
 ///     
 ///         TEST("A flubber can do it")
 ///         {
@@ -537,11 +540,8 @@ public:
 /// 
 ///   * fiddler_tests.cpp
 /// 
-///         #include <foolib.h>
-///         #include <jg/jg_mock.h>
 ///         #include <fiddler.h>
-///     
-///         JG_MOCK_REF(,,, foo*, foolib_create, const char*);
+///         #include "foolib_mocks.h"
 ///     
 ///         TEST("A fiddler can't play")
 ///         {
