@@ -6,6 +6,7 @@
 #include <cstdint>
 
 #ifdef _WIN32
+#include <mutex>
 #include <process.h>
 #include <windows.h>
 #include <dbghelp.h>
@@ -19,7 +20,8 @@ struct stack_frame final
 {
     std::uint64_t address;
     std::uint64_t address_displacement;
-    std::string symbol_name;
+    std::string package;
+    std::string function;
     std::string file;
     std::size_t line;
     std::size_t line_displacement;
@@ -28,16 +30,11 @@ struct stack_frame final
 static inline std::ostream& operator<<(std::ostream& stream, const stack_frame& frame)
 {
     stream << "\t"
-           << frame.symbol_name
-           << "[0x"
-           << std::hex << frame.address
-           << "+"
-           << std::dec << frame.address_displacement
-           << "] at "
-           << frame.file
-           << "("
-           << frame.line
-           << ")";
+           << frame.function
+           << " [0x" << std::hex << frame.address << " + 0x" << frame.address_displacement << "]";
+    
+    if (!frame.file.empty())
+        stream << " at " << frame.file << "(" << std::dec << frame.line << ")";
 
     return stream;
 }
@@ -50,41 +47,15 @@ static inline std::ostream& operator<<(std::ostream& stream, const stack_frame& 
 class stack_trace final
 {
 public:
-    stack_trace();
-    ~stack_trace();
-
     stack_trace& skip_frame_count(size_t count);
     stack_trace& include_frame_count(size_t count);
 
     std::vector<stack_frame> capture() const;
 
 private:
-#ifdef _WIN32
-    void* m_process = nullptr;
-#endif
     size_t m_skip_frame_count = 0;
     size_t m_include_frame_count = 0;
 };
-
-inline stack_trace::stack_trace()
-#ifdef _WIN32
-    : m_process(GetCurrentProcess())
-{
-    if (m_process)
-        m_process = SymInitialize(m_process, NULL, TRUE) ? m_process : nullptr;
-}
-#else
-{
-}
-#endif
-
-inline stack_trace::~stack_trace()
-{
-#ifdef _WIN32
-    if (m_process)
-        SymCleanup(m_process);
-#endif
-}
 
 inline stack_trace& stack_trace::skip_frame_count(size_t count)
 {
@@ -104,9 +75,6 @@ inline std::vector<stack_frame> stack_trace::capture() const
     
 #ifdef _WIN32
 
-    if (!m_process)
-        return {};
-
     std::vector<void*> stack(m_include_frame_count);
 
     if (const auto frame_count = CaptureStackBackTrace(static_cast<DWORD>(m_skip_frame_count + 1),
@@ -121,21 +89,41 @@ inline std::vector<stack_frame> stack_trace::capture() const
         sip.si.SizeOfStruct = sizeof(sip.si);
         sip.si.MaxNameLen   = sizeof(sip.name);
         
-        for (void* frame : stack)
+        // All Win32 Sym... DbgHlp functions are single threaded and need synchronization.
+        static std::mutex dbghlp_mutex;
+        std::lock_guard<std::mutex> dbghlp_lock{dbghlp_mutex};
+        
+        if (SymInitialize(GetCurrentProcess(), NULL, TRUE))
         {
-            DWORD64 address = reinterpret_cast<DWORD64>(frame);
-            DWORD64 symbol_displacement = 0;
-
-            if (SymFromAddr(m_process, address, &symbol_displacement, &sip.si))
+            for (void* frame : stack)
             {
-                IMAGEHLP_LINE64 line{};
-                line.SizeOfStruct = sizeof(line);
-                DWORD line_displacement = 0;
-                
-                SymGetLineFromAddr64(m_process, address, &line_displacement, &line);
-                stack_frames.push_back({sip.si.Address, symbol_displacement, sip.si.Name,
-                                        line.FileName, line.LineNumber, line_displacement});
+                DWORD64 address = reinterpret_cast<DWORD64>(frame);
+                DWORD64 symbol_displacement = 0;
+
+                if (SymFromAddr(GetCurrentProcess(), address, &symbol_displacement, &sip.si))
+                {
+                    jg::stack_frame frame{};
+                    frame.address              = sip.si.Address;
+                    frame.address_displacement = symbol_displacement;
+                    frame.package              = sip.name;
+                    frame.function             = sip.si.Name;
+
+                    DWORD line_displacement = 0;
+                    IMAGEHLP_LINE64 line{};
+                    line.SizeOfStruct = sizeof(line);
+                    
+                    if (SymGetLineFromAddr64(GetCurrentProcess(), address, &line_displacement, &line))
+                    {
+                        frame.file              = line.FileName;
+                        frame.line              = line.LineNumber;
+                        frame.line_displacement = line_displacement;
+                    }
+
+                    stack_frames.push_back(std::move(frame));
+                }
             }
+
+            SymCleanup(GetCurrentProcess());
         }
     }
 
