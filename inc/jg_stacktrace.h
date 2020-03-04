@@ -13,6 +13,13 @@
 #pragma comment(lib, "dbghelp.lib")
 #endif
 
+//
+// Note that some MSVC versions require /Zc:__cplusplus even if /std:c++14 or higher is specified
+//
+#if (__cplusplus < 201402L)
+#error jg::stack_trace needs C++14 or newer
+#endif
+
 namespace jg
 {
 
@@ -75,15 +82,15 @@ inline std::vector<stack_frame> stack_trace::capture() const
     
 #ifdef _WIN32
 
-    std::vector<void*> stack(m_include_frame_count);
+    std::vector<void*> back_trace(m_include_frame_count);
 
     if (const auto frame_count = CaptureStackBackTrace(static_cast<DWORD>(m_skip_frame_count + 1),
-                                                       static_cast<DWORD>(stack.size()),
-                                                       stack.data(),
+                                                       static_cast<DWORD>(back_trace.size()),
+                                                       back_trace.data(),
                                                        nullptr))
     {
         stack_frames.reserve(frame_count);
-        stack.resize(frame_count);
+        back_trace.resize(frame_count);
 
         SYMBOL_INFO_PACKAGE sip{};
         sip.si.SizeOfStruct = sizeof(sip.si);
@@ -95,9 +102,9 @@ inline std::vector<stack_frame> stack_trace::capture() const
         
         if (SymInitialize(GetCurrentProcess(), NULL, TRUE))
         {
-            for (void* frame : stack)
+            for (void* raw_address : back_trace)
             {
-                DWORD64 address = reinterpret_cast<DWORD64>(frame);
+                const DWORD64 address = reinterpret_cast<DWORD64>(raw_address);
                 DWORD64 symbol_displacement = 0;
 
                 if (SymFromAddr(GetCurrentProcess(), address, &symbol_displacement, &sip.si))
