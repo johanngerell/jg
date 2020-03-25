@@ -1,9 +1,7 @@
 #pragma once
 
-#ifndef NDEBUG
 #include <cassert>
 #include "jg_stacktrace.h"
-#endif
 
 namespace jg
 {
