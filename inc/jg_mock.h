@@ -22,7 +22,7 @@
 // Note that some MSVC versions require /Zc:__cplusplus even if /std:c++14 or higher is specified
 //
 #if (__cplusplus < 201402L)
-#error jg::mock needs C++14 or newer
+    #error jg::mock needs C++14 or newer
 #endif
 
 namespace jg
@@ -30,8 +30,9 @@ namespace jg
 namespace detail 
 {
 
+// C++20 has std::remove_cvref for this.
 template <typename T>
-using base_t = std::remove_const_t<std::remove_reference_t<T>>; // C++20 has std::remove_cvref for this.
+using base_t = std::remove_const_t<std::remove_reference_t<T>>;
 
 template <typename ...T>
 using tuple_params_t = std::tuple<base_t<T>...>;
@@ -77,8 +78,9 @@ class mock_aux_parameters<0>
 template <typename T, typename Enable = void>
 class verified;
 
+// C++17 has std::is_reference_v.
 template <typename T>
-class verified<T, std::enable_if_t<std::is_reference_v<T>>> final
+class verified<T, std::enable_if_t<std::is_reference<T>::value>> final
 {
 public:
     verified& operator=(T other)
@@ -99,8 +101,9 @@ private:
     bool assigned = false;
 };
 
+// C++17 has std::is_reference_v.
 template <typename T>
-class verified<T, std::enable_if_t<!std::is_reference_v<T>>> final
+class verified<T, std::enable_if_t<!std::is_reference<T>::value>> final
 {
 public:
     verified& operator=(const T& other)
@@ -241,40 +244,94 @@ public:
     T impl(Params&&... params)
     {
         aux.set_params(std::forward<Params>(params)...);
-        return mock_impl_base::impl(std::forward<Params>(params)...);
+        return mock_impl_base<T, mock_impl<T, TMockAux>>::impl(std::forward<Params>(params)...);
     }
 
     T impl()
     {
-        return mock_impl_base::impl();
+        return mock_impl_base<T, mock_impl<T, TMockAux>>::impl();
     }
 };
 
 } // namespace detail
 } // namespace jg
 
-// The variadic macro parameter count macros below are derived from these links:
-//
-// https://stackoverflow.com/questions/5530505/why-does-this-variadic-argument-count-macro-fail-with-vc
-// https://stackoverflow.com/questions/26682812/argument-counting-macro-with-zero-arguments-for-visualstudio
-// https://stackoverflow.com/questions/9183993/msvc-variadic-macro-expansion?rq=1
+#define _JG_CONCAT5(x1, x2, x3, x4, x5) x1 ## x2 ## x3 ## x4 ## x5
+#define _JG_CONCAT2(x1, x2) x1 ## x2
+#define _JG_CONCAT(x1, x2) _JG_CONCAT2(x1, x2)
 
-#define _JG_CONCAT3(x, y, z) x ## y ## z
-#define _JG_CONCAT2(x, y) x ## y
-#define _JG_CONCAT(x, y) _JG_CONCAT2(x, y)
-#define _JG_EXPAND(x) x
-#define _JG_GLUE(x, y) x y
-#define _JG_VA_COUNT_2(x0,x1,x2,x3,x4,x5,x6,x7,x8,x9,x10,N,...) N
 //
-// Clang and GCC handles empty __VA_ARGS__ differently from MSVC.
+// Clang and GCC handles empty __VA_ARGS__ differently than MSVC.
 //
 #ifdef _MSC_VER
-#define _JG_VA_COUNT_1(...) _JG_EXPAND(_JG_VA_COUNT_2(__VA_ARGS__,10,9,8,7,6,5,4,3,2,1,0))
-#define _JG_AUGMENTER(...) unused, __VA_ARGS__
-#define _JG_VA_COUNT(...) _JG_VA_COUNT_1(_JG_AUGMENTER(__VA_ARGS__))
+    // The core of _JG_OVERLOADED_MACRO for MSVC comes from here:
+    //
+    //   * https://stackoverflow.com/questions/5530505/why-does-this-variadic-argument-count-macro-fail-with-vc
+    //   * https://stackoverflow.com/questions/26682812/argument-counting-macro-with-zero-arguments-for-visualstudio
+    //   * https://stackoverflow.com/questions/9183993/msvc-variadic-macro-expansion?rq=1
+    //
+    #define _JG_EXPAND(x) x
+    #define _JG_GLUE(x1, x2) x1 x2
+    #define _JG_VA_COUNT_2(x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, ...) x12
+    #define _JG_VA_COUNT_1(...) _JG_EXPAND(_JG_VA_COUNT_2(__VA_ARGS__,10,9,8,7,6,5,4,3,2,1,0))
+    #define _JG_AUGMENTER(...) unused, __VA_ARGS__
+    #define _JG_VA_COUNT(...) _JG_VA_COUNT_1(_JG_AUGMENTER(__VA_ARGS__))
+    #define _JG_OVERLOADED_MACRO(name, ...) \
+        _JG_GLUE(_JG_CONCAT(name, _JG_VA_COUNT(__VA_ARGS__)), (__VA_ARGS__))
 #else
-#define _JG_VA_COUNT_1(...) _JG_EXPAND(_JG_VA_COUNT_2(0, ## __VA_ARGS__,10,9,8,7,6,5,4,3,2,1,0))
-#define _JG_VA_COUNT(...) _JG_VA_COUNT_1(__VA_ARGS__)
+    // The core of _JG_OVERLOADED_MACRO for GCC and CLANG comes from here:
+    //
+    //   * https://stackoverflow.com/a/47425231/6345
+    //
+    #define _JG_ARG16(_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, ...) _15
+    #define _JG_HAS_COMMA(...) _JG_ARG16(__VA_ARGS__, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0)
+    #define _JG_HAS_NO_COMMA(...) _JG_ARG16(__VA_ARGS__, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1)
+    #define _JG_TRIGGER_PARENTHESIS_(...) ,
+    #define _JG_IS_EMPTY_CASE_0001 ,
+    #define _JG_HAS_ZERO_OR_ONE_ARGS2(_0, _1, _2, _3) _JG_HAS_NO_COMMA(_JG_CONCAT5(_JG_IS_EMPTY_CASE_, _0, _1, _2, _3))
+    #define _JG_HAS_ZERO_OR_ONE_ARGS(...) \
+        _JG_HAS_ZERO_OR_ONE_ARGS2( \
+        /* test if there is just one argument, possibly empty */ \
+        _JG_HAS_COMMA(__VA_ARGS__), \
+        /* test if _TRIGGER_PARENTHESIS_ together with the argument adds a comma */ \
+        _JG_HAS_COMMA(_JG_TRIGGER_PARENTHESIS_ __VA_ARGS__), \
+        /* test if the argument together with a parenthesis adds a comma */ \
+        _JG_HAS_COMMA(__VA_ARGS__ (~)), \
+        /* test if placing it between _TRIGGER_PARENTHESIS_ and the parenthesis adds a comma */ \
+        _JG_HAS_COMMA(_JG_TRIGGER_PARENTHESIS_ __VA_ARGS__ (~)) \
+        )
+
+    #define _JG_VA0(...) _JG_HAS_ZERO_OR_ONE_ARGS(__VA_ARGS__)
+    #define _JG_VA1(...) _JG_HAS_ZERO_OR_ONE_ARGS(__VA_ARGS__)
+    #define _JG_VA2(...) 2
+    #define _JG_VA3(...) 3
+    #define _JG_VA4(...) 4
+    #define _JG_VA5(...) 5
+    #define _JG_VA6(...) 6
+    #define _JG_VA7(...) 7
+    #define _JG_VA8(...) 8
+    #define _JG_VA9(...) 9
+    #define _JG_VA10(...) 10
+    #define _JG_VA11(...) 11
+    #define _JG_VA12(...) 12
+    #define _JG_VA13(...) 13
+    #define _JG_VA14(...) 14
+    #define _JG_VA15(...) 15
+    #define _JG_VA16(...) 16
+
+    #define _JG_VA_NUM_ARGS_N(_1, _2, _3, _4, _5, _6, _7, _8, _9,_10, _11,_12,_13,_14,_15,_16,N,...) N
+    #define _JG_VA_NUM_ARGS_IMPL(...) _JG_VA_NUM_ARGS_N(__VA_ARGS__)
+    #define _JG_VA_NUM_ARGS(...) _JG_VA_NUM_ARGS_IMPL(__VA_ARGS__, _JG_PP_RSEQ_N(__VA_ARGS__) )
+
+    #define _JG_PP_RSEQ_N(...) \
+        _JG_VA16(__VA_ARGS__),_JG_VA15(__VA_ARGS__),_JG_VA14(__VA_ARGS__),_JG_VA13(__VA_ARGS__), \
+        _JG_VA12(__VA_ARGS__),_JG_VA11(__VA_ARGS__),_JG_VA10(__VA_ARGS__),_JG_VA9(__VA_ARGS__), \
+        _JG_VA8(__VA_ARGS__),_JG_VA7(__VA_ARGS__),_JG_VA6(__VA_ARGS__),_JG_VA5(__VA_ARGS__), \
+        _JG_VA4(__VA_ARGS__),_JG_VA3(__VA_ARGS__),_JG_VA2(__VA_ARGS__),_JG_VA1(__VA_ARGS__), \
+        _JG_VA0(__VA_ARGS__)
+    
+    #define _JG_OVERLOADED_MACRO(name, ...) \
+        _JG_CONCAT(name, _JG_VA_NUM_ARGS(__VA_ARGS__)) (__VA_ARGS__)
 #endif
 
 #define _JG_MOCK_FUNC_PARAMS_DECL_0()
@@ -302,10 +359,10 @@ public:
 #define _JG_MOCK_FUNC_PARAMS_CALL_10(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10) p1, p2, p3, p4, p5, p6, p7, p8, p9, p10
 
 #define _JG_MOCK_FUNC_PARAMS_DECL(...) \
-    _JG_GLUE(_JG_CONCAT(_JG_MOCK_FUNC_PARAMS_DECL_, _JG_VA_COUNT(__VA_ARGS__)), (__VA_ARGS__))
+    _JG_OVERLOADED_MACRO(_JG_MOCK_FUNC_PARAMS_DECL_, __VA_ARGS__)
 
 #define _JG_MOCK_FUNC_PARAMS_CALL(...) \
-    _JG_GLUE(_JG_CONCAT(_JG_MOCK_FUNC_PARAMS_CALL_, _JG_VA_COUNT(__VA_ARGS__)), (__VA_ARGS__))
+    _JG_OVERLOADED_MACRO(_JG_MOCK_FUNC_PARAMS_CALL_, __VA_ARGS__)
 
 // --------------------------- Implementation details go above this line ---------------------------
 
@@ -492,10 +549,13 @@ public:
 /// @param function_name The name of the function to mock.
 /// @param variadic Variadic parameter list of parameter types for the function, if any.
 #define JG_MOCK(prefix, suffix, overload_suffix, return_type, function_name, ...) \
-    jg::detail::mock_aux<return_type, __VA_ARGS__> _JG_CONCAT3(function_name, overload_suffix, _) {#return_type " " #function_name "(" #__VA_ARGS__ ") " #suffix}; \
+    jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+    function_name ## overload_suffix ## _ \
+    {#return_type " " #function_name "(" #__VA_ARGS__ ") " #suffix}; \
     prefix return_type function_name(_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__)) suffix \
     { \
-        return jg::detail::mock_impl<return_type, decltype(_JG_CONCAT3(function_name, overload_suffix, _))>(_JG_CONCAT3(function_name, overload_suffix, _)).impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
+        return jg::detail::mock_impl<return_type, decltype(function_name ## overload_suffix ## _)> \
+               (function_name ## overload_suffix ## _).impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
     }
 
 /// @macro JG_MOCK_REF
@@ -557,9 +617,9 @@ public:
 ///
 /// Mismatched `JG_MOCK` and `JG_MOCK_REF` declarations leads to compilation and linker errors.
 #define JG_MOCK_REF(prefix, suffix, overload_suffix, return_type, function_name, ...) \
-    extern jg::detail::mock_aux<return_type, __VA_ARGS__> _JG_CONCAT3(function_name, overload_suffix, _);
+    extern jg::detail::mock_aux<return_type, ##__VA_ARGS__> function_name ## overload_suffix ## _
 
 #ifdef JG_MOCK_ENABLE_SHORT_NAMES
-#define MOCK     JG_MOCK
-#define MOCK_REF JG_MOCK_REF
+    #define MOCK     JG_MOCK
+    #define MOCK_REF JG_MOCK_REF
 #endif
