@@ -17,26 +17,29 @@
 //
 //   - JG_MOCK_ENABLE_SHORT_NAMES: Enables mocking macros named without the "JG_" prefix.
 //
-
 //
-// Note that some MSVC versions require /Zc:__cplusplus even if /std:c++14 or higher is specified
+// Note that MSVC versions before Visual Studio 2019 might require
+// /Zc:__cplusplus to enable checking #if (__cplusplus < 201402L) etc.
 //
-#if (__cplusplus < 201402L)
-    #error jg::mock needs C++14 or newer
-#endif
 
 namespace jg
 {
 namespace detail 
 {
 
-// C++20 has std::remove_cvref for this.
+#if (__cplusplus >= 201402L)
+// C++20 has std::remove_cvref<>.
 template <typename T>
 using base_t = std::remove_const_t<std::remove_reference_t<T>>;
+#else
+template <typename T>
+using base_t = typename std::remove_const<typename std::remove_reference<T>::type>::type;
+#endif
 
 template <typename ...T>
 using tuple_params_t = std::tuple<base_t<T>...>;
 
+#if (__cplusplus >= 201402L)
 template<size_t N, typename... Params>
 using nth_param_t = std::tuple_element_t<N, std::tuple<Params...>>;
 
@@ -48,6 +51,7 @@ nth_param_t<N, Params...> nth_param(Params&&... params)
 {
     return std::get<N>(std::forward_as_tuple(params...));
 }
+#endif
 
 // The auxiliary data for a mock function that takes N parameters has `param<1>(), ..., param<N>()` members
 // holding the actual N parameters the function was last called with, for usage in tests.
@@ -55,8 +59,14 @@ template <size_t N, typename ...Params>
 class mock_aux_parameters
 {
 public:
+#if (__cplusplus >= 201402L)
     template <size_t Number>
     auto param() const { return std::get<Number - 1>(m_params); }
+#else
+    // Return type auto deduction is C++14.
+    template <size_t Number>
+    typename std::tuple_element<Number - 1, std::tuple<Params...> >::type param() const { return std::get<Number - 1>(m_params); }
+#endif
 
 protected:
     template <typename, typename>
@@ -78,9 +88,14 @@ class mock_aux_parameters<0>
 template <typename T, typename Enable = void>
 class verified;
 
-// C++17 has std::is_reference_v.
+#if (__cplusplus >= 201402L)
+// C++17 has std::is_reference_v<>.
 template <typename T>
 class verified<T, std::enable_if_t<std::is_reference<T>::value>> final
+#else
+template <typename T>
+class verified<T, typename std::enable_if<std::is_reference<T>::value>::type> final
+#endif
 {
 public:
     verified& operator=(T other)
@@ -97,13 +112,22 @@ public:
     }
 
 private:
+#if (__cplusplus >= 201402L)
     std::remove_reference_t<T>* value = nullptr;
+#else
+    typename std::remove_reference<T>::type* value = nullptr;
+#endif
     bool assigned = false;
 };
 
+#if (__cplusplus >= 201402L)
 // C++17 has std::is_reference_v.
 template <typename T>
 class verified<T, std::enable_if_t<!std::is_reference<T>::value>> final
+#else
+template <typename T>
+class verified<T, typename std::enable_if<!std::is_reference<T>::value>::type> final
+#endif
 {
 public:
     verified& operator=(const T& other)
@@ -180,8 +204,14 @@ class mock_impl_base;
 
 // A mock function that returns `void` only calls `func` in its
 // auxiliary data if it's set in the test. Nothing is done if it's not set.
+#if (__cplusplus >= 201402L)
+// C++17 has std::is_same_v<>.
 template <typename T, typename TImpl>
 class mock_impl_base<T, TImpl, std::enable_if_t<std::is_same<T, void>::value>>
+#else
+template <typename T, typename TImpl>
+class mock_impl_base<T, TImpl, typename std::enable_if<std::is_same<T, void>::value>::type>
+#endif
 {
 public:
     template <typename... Params>
@@ -201,8 +231,14 @@ public:
 // returned if the bahavior is non-default. The documentation for `jg::verify` has details on how to
 // configure the assertion behavior at compile time.
 // @see jg::verify
+#if (__cplusplus >= 201402L)
+// C++17 has std::is_same_v<>.
 template <typename T, typename TImpl>
 class mock_impl_base<T, TImpl, std::enable_if_t<!std::is_same<T, void>::value>>
+#else
+template <typename T, typename TImpl>
+class mock_impl_base<T, TImpl, typename std::enable_if<!std::is_same<T, void>::value>::type>
+#endif
 {
 public:
     template <typename... Params>
