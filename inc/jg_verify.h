@@ -25,8 +25,11 @@ inline void verify(bool condition)
 {
 #if defined(JG_VERIFY_ENABLE_STACK_TRACE) || !defined(NDEBUG)
     if (!condition)
-        for (const auto& stack_frame : jg::stack_trace().include_frame_count(10).skip_frame_count(1).capture())
-            std::cout << stack_frame << "\n";
+        for (const auto& frame : jg::stack_trace()
+                                 .include_frame_count(10)
+                                 .skip_frame_count(1)
+                                 .capture())
+            std::cout << frame << "\n";
 #endif
 
 #ifdef JG_VERIFY_ENABLE_TERMINATE
@@ -34,6 +37,37 @@ inline void verify(bool condition)
         std::terminate();
 #else
     assert(condition);
+#endif
+}
+
+/// Verifies that `condition` evaluates to `true` when NDEBUG is not defined (a.k.a. a debug build)
+///
+/// If `condition` is `false` and...
+///
+///   * JG_VERIFY_ENABLE_STACK_TRACE is defined, then a stack trace is written to `stdout`,
+///   * JG_VERIFY_ENABLE_TERMINATE is defined, then `std::terminate()` is called,
+///   * JG_VERIFY_ENABLE_TERMINATE isn't defined, then `assert(condition)` fails.
+///
+/// If NDEBUG is defined then this function will be a no-op (a.k.a. a release build).
+inline void debug_verify(bool condition)
+{
+#if defined(NDEBUG)
+    (void)condition;
+#else
+#if defined(JG_VERIFY_ENABLE_STACK_TRACE) 
+    if (!condition)
+        for (const auto& frame : jg::stack_trace()
+                                 .include_frame_count(10)
+                                 .skip_frame_count(1)
+                                 .capture())
+            std::cout << frame << "\n";
+#endif
+#ifdef JG_VERIFY_ENABLE_TERMINATE
+    if (!condition)
+        std::terminate();
+#else
+    assert(condition);
+#endif
 #endif
 }
 
