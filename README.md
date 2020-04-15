@@ -6,7 +6,7 @@ General C++ utilities that make me happy
 
 ### Windows
 
-For example
+Using the Visual Studio "multi-configuration" generator
 
     jg> mkdir samples\build
     jg> cd samples\build
@@ -61,3 +61,14 @@ Build release with debug info
     
       jg_stacktrace.cpp
       jg_stacktrace.vcxproj -> C:\source\jg\samples\build\RelWithDebInfo\jg_stacktrace.exe
+
+Using the Ninja "single-configuration" generator
+
+    > mkdir build\windows\debug
+    > cd build\windows\debug
+    > cmake ..\..\.. -DCMAKE_BUILD_TYPE=Debug -GNinja
+
+Build
+
+    > cd build\windows\debug
+    > cmake --build .
