@@ -1,9 +1,9 @@
 #include <iostream>
 #include <string>
+#include <sys/timeb.h>
 #include <ctime>
 #include <cstdio>
 #include <cstdint>
-#include <sys/timeb.h>
 
 namespace jg
 {
@@ -15,34 +15,42 @@ public:
 
     static timestamp now()
     {
-        __timeb64 timebuffer;
-        return _ftime64_s(&timebuffer) == 0 ?
-               timestamp{timebuffer.time, timebuffer.millitm} :
-               timestamp{};
+        timeb timebuffer;
+        ftime(&timebuffer);
+        return {timebuffer.time, timebuffer.millitm};
     }
 
     using format_buffer = char[26];
 
-    /// Formats a 24-hour "hh:mm:ss.mmm " timestamp string a the supplied buffer, without allocations.
-    /// @return Pointer to the formatted timestamp in `buffer`, or `format_error` if formatting failed.
-    const char* format(format_buffer& buffer, const char* format_error = "") const
+    /// Formats a 24-hour "hh:mm:ss.mmm " timestamp string in a supplied buffer, without allocations.
+    /// @return Pointer to the formatted timestamp in `buffer`, or `error_return` if formatting failed.
+    const char* format(format_buffer& buffer, const char* error_return = nullptr) const
     {
-        // _ctime64_s formats a string exactly in the format "Www Mmm dd hh:mm:ss yyyy\n",
-        // with individual fixed-length fields. This string has length 25, which means that the target
-        // buffer must be at least size 26 to fit the null-terminator. We repurpose the " yyyy" part for
-        // the equally long ".mmm " milliseconds part, and replace the \n with a \0.
+        // ctime_s and ctime_r format a string exactly in the format "Www Mmm dd hh:mm:ss yyyy\n", with
+        // individual fixed-length fields. This string has length 25, which means that the target buffer
+        // must be at least size 26 to fit the null-terminator. We repurpose the " yyyy" part for the
+        // equally long ".mmm " milliseconds part, and replace the \n with a \0 to end the string there.
         static_assert(sizeof(buffer) == sizeof("Www Mmm dd hh:mm:ss yyyy\n"), "");
-        constexpr size_t ms_offset = sizeof("Www Mmm dd hh:mm:ss") - 1;
-        constexpr size_t ms_size = sizeof(buffer) - ms_offset;
-        constexpr size_t ms_length = sizeof(".mmm ") - 1;
-        static_assert(ms_size > ms_length, "");
 
-        char* ms_start = buffer + ms_offset;
-        const char* hour_start = buffer + sizeof("Www Mmm dd ") - 1;
+        auto format_time = [&]
+        {
+#ifdef _WIN32
+            return ctime_s(buffer, sizeof(buffer), &m_time) == 0;
+#else
+            return ctime_r(&m_time, buffer) != nullptr;
+#endif
+        };
 
-        return _ctime64_s(buffer, sizeof(buffer), &m_time) == 0 && 
-               snprintf(ms_start,  ms_size, ".%03hu ", m_ms) == ms_length ?
-               hour_start : format_error;
+        auto format_ms = [&]
+        {
+            constexpr size_t ms_offset = sizeof("Www Mmm dd hh:mm:ss") - 1;
+            constexpr size_t ms_size = sizeof(buffer) - ms_offset;
+            constexpr size_t ms_length = sizeof(".mmm ") - 1;
+            return snprintf(buffer + ms_offset, ms_size, ".%03hu ", m_ms) == ms_length;
+        };
+
+        constexpr size_t time_offset = sizeof("Www Mmm dd ") - 1;
+        return format_time() && format_ms() ? buffer + time_offset : error_return;
     }
 
 private:

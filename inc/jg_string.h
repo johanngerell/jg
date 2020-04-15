@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <cstring>
 #include "jg_span.h"
 #include "jg_verify.h"
 
@@ -37,10 +38,10 @@ public:
 
     template <size_t N>
     constexpr string_ref(const char (&string)[N])
+        : m_string{string, N - 1}
     {
         // Don't want char arrays with embedded nulls.
         debug_verify(strlen(string) == N - 1);
-        return {string, N - 1};
     }
 
     template <size_t N>

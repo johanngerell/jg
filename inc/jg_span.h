@@ -1,5 +1,7 @@
 #pragma once
 
+#include "jg_verify.h"
+
 namespace jg
 {
 

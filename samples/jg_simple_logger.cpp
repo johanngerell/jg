@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <vector>
 #include <jg_simple_logger.h>
+#include <jg_stopwatch.h>
 
 int main()
 {
@@ -22,11 +23,14 @@ int main()
         "log 1.j\n"
     };
 
-    std::cout << "10 back-to-back logs\n\n";
+    std::cout << "10 back-to-back logs...\n\n";
+    jg::stopwatch stopwatch;
     for (const auto& log : logs)
         jg::log() << log;
+    std::cout << "\n... " << stopwatch.ms() << " ms\n";
+    
 
-    std::cout << "\n10 'cooked' logs, v1\n\n";
+    std::cout << "\n10 'cooked' logs, v1...\n\n";
     std::vector<jg::timestamp> timestamps;
     std::generate_n(std::back_inserter(timestamps), 10, []
     {
@@ -34,12 +38,16 @@ int main()
         return jg::timestamp::now();
     });
 
+    stopwatch.restart();
     for (size_t i = 0; i < 10; ++i)
         std::clog << timestamps[i] << logs[i];
+    std::cout << "\n... " << stopwatch.ms() << " ms\n";
 
-    std::cout << "\n10 'cooked' logs, v2\n\n";
+    std::cout << "\n10 'cooked' logs, v2...\n\n";
+    stopwatch.restart();
     for (size_t i = 0; i < 10; ++i)
         std::clog << to_string(timestamps[i]) << logs[i];
+    std::cout << "\n... " << stopwatch.ms() << " ms\n";
 
     std::cout << "\n...done";
 }
