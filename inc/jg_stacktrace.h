@@ -13,13 +13,6 @@
 #pragma comment(lib, "dbghelp.lib")
 #endif
 
-//
-// Note that some MSVC versions require /Zc:__cplusplus even if /std:c++14 or higher is specified
-//
-#if (__cplusplus < 201402L)
-#error jg::stack_trace needs C++14 or newer
-#endif
-
 namespace jg
 {
 
