@@ -15,3 +15,5 @@ else()
 endif()
 
 add_executable(jg_stacktrace jg_stacktrace.cpp)
+add_executable(jg_span jg_span.cpp)
+add_executable(jg_simple_logger jg_simple_logger.cpp)
