@@ -2,73 +2,58 @@
 
 General C++ utilities that make me happy
 
-## CMake configuration
+## Building with CMake
 
-### Windows
+### Using the Visual Studio generator
 
-Using the Visual Studio "multi-configuration" generator
+The **Visual Studio** CMake generator (which uses MSBuild under the hood) is called a multi-configuration generator. This means that the same CMake configuration can be used for both _Debug_, _Release_, and _RelWithDebInfo_ builds.
 
-    jg> mkdir samples\build
-    jg> cd samples\build
-    jg\samples\build> cmake .. -G "Visual Studio 15 2017 Win64"
+Create the configuration:
 
-Output similar to
+    > mkdir build\windows
+    > cd build\windows
+    > cmake ..\.. -G "Visual Studio 15 2017 Win64"
 
-    -- Selecting Windows SDK version 10.0.18362.0 to target Windows 10.0.18363.
-    -- The C compiler identification is MSVC 19.16.27035.0
-    -- The CXX compiler identification is MSVC 19.16.27035.0
-    -- Check for working C compiler: C:/Program Files (x86)/Microsoft Visual Studio/2017/Professional/VC/Tools/MSVC/14.16.27023/bin/Hostx86/x64/cl.exe
-    -- Check for working C compiler: C:/Program Files (x86)/Microsoft Visual Studio/2017/Professional/VC/Tools/MSVC/14.16.27023/bin/Hostx86/x64/cl.exe -- works
-    -- Detecting C compiler ABI info
-    -- Detecting C compiler ABI info - done
-    -- Detecting C compile features
-    -- Detecting C compile features - done
-    -- Check for working CXX compiler: C:/Program Files (x86)/Microsoft Visual Studio/2017/Professional/VC/Tools/MSVC/14.16.27023/bin/Hostx86/x64/cl.exe
-    -- Check for working CXX compiler: C:/Program Files (x86)/Microsoft Visual Studio/2017/Professional/VC/Tools/MSVC/14.16.27023/bin/Hostx86/x64/cl.exe -- works
-    -- Detecting CXX compiler ABI info
-    -- Detecting CXX compiler ABI info - done
-    -- Detecting CXX compile features
-    -- Detecting CXX compile features - done
-    -- Configuring done
-    -- Generating done
-    -- Build files have been written to: C:/source/jg/samples/build
+Build all targets in Debug (the default):
 
-Build debug (the default)
+    > cd build\windows
+    > cmake --build . -- /verbosity:minimal
 
-    jg\samples\build> cmake --build . --target jg_stacktrace -- /verbosity:minimal
-    Microsoft (R) Build Engine version 15.9.21+g9802d43bc3 for .NET Framework
-    Copyright (C) Microsoft Corporation. All rights reserved.
-    
-      jg_stacktrace.cpp
-      jg_stacktrace.vcxproj -> C:\source\jg\samples\build\Debug\jg_stacktrace.exe
+Build all targets in Release:
 
-Arguments after `--` are passed to MSBuild (since the generator is Visual Studio)
+    > cd build\windows
+    > cmake --build . --config Release -- /verbosity:minimal
 
-Build release
+Build one target in Debug:
 
-    jg\samples\build> cmake --build . --target jg_stacktrace --config Release -- /verbosity:minimal
-    Microsoft (R) Build Engine version 15.9.21+g9802d43bc3 for .NET Framework
-    Copyright (C) Microsoft Corporation. All rights reserved.
-    
-      jg_stacktrace.cpp
-      jg_stacktrace.vcxproj -> C:\source\jg\samples\build\Release\jg_stacktrace.exe
+    > cd build\windows
+    > cmake --build . --target jg_stacktrace -- /verbosity:minimal
 
-Build release with debug info
+Build one target in Release:
 
-    jg\samples\build> cmake --build . --target jg_stacktrace --config RelWithDebInfo -- /verbosity:minimal
-    Microsoft (R) Build Engine version 15.9.21+g9802d43bc3 for .NET Framework
-    Copyright (C) Microsoft Corporation. All rights reserved.
-    
-      jg_stacktrace.cpp
-      jg_stacktrace.vcxproj -> C:\source\jg\samples\build\RelWithDebInfo\jg_stacktrace.exe
+    > cd build\windows
+    > cmake --build . --target jg_stacktrace --config Release -- /verbosity:minimal
 
-Using the Ninja "single-configuration" generator
+Arguments after `--` are passed to the generator (specifically to MSBuild when the generator is Visual Studio).
+
+To build Release with debug info, just change _Release_ to _RelWithDebInfo_.
+
+### Using the Ninja generator
+
+The **Ninja** CMake generator is called a single-configuration generator. This means that separate CMake configurations are used for each of _Debug_, _Release_, and _RelWithDebInfo_ builds.
+
+Create a Debug configuration:
 
     > mkdir build\windows\debug
     > cd build\windows\debug
     > cmake ..\..\.. -DCMAKE_BUILD_TYPE=Debug -GNinja
 
-Build
+Build all targets in Debug:
 
     > cd build\windows\debug
     > cmake --build .
+
+Build one target in Debug:
+
+    > cd build\windows\debug
+    > cmake --build . --target jg_stacktrace
