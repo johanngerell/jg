@@ -30,7 +30,7 @@ inline void verify(bool condition)
             std::cout << frame << "\n";
 #endif
 
-#ifdef JG_VERIFY_ENABLE_TERMINATE
+#if defined(JG_VERIFY_ENABLE_TERMINATE)
     if (!condition)
         std::terminate();
 #else
@@ -60,7 +60,7 @@ inline void debug_verify(bool condition)
                                  .capture())
             std::cout << frame << "\n";
 #endif
-#ifdef JG_VERIFY_ENABLE_TERMINATE
+#if defined(JG_VERIFY_ENABLE_TERMINATE)
     if (!condition)
         std::terminate();
 #else
@@ -69,12 +69,28 @@ inline void debug_verify(bool condition)
 #endif
 }
 
+template <typename Func>
+inline void debug_verify(bool condition, Func on_failure)
+{
+#if !defined(NDEBUG)
+    if (!condition)
+        on_failure();
+#endif
+    debug_verify(condition);
+}
+
 /// Calls `verify(ptr)` and returns `ptr`. Will be a no-op when `verify(ptr)` is a no-op.
 template <typename T>
 inline T* verified(T* ptr)
 {
     verify(ptr);
     return ptr;
+}
+
+inline bool verified(bool condition)
+{
+    verify(condition);
+    return condition;
 }
 
 } // namespace jg
