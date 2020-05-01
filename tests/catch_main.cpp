@@ -9,7 +9,7 @@
 
 // Link-time function dependencies that needs mocking in unit tests can only be defined once, and that is
 // preferably done here. Mocking such functions for usage in unit tests in different translation units is
-// made easier by using the JG_MOCK_PROXY macro family from jg::mock.
+// made easier by using the JG_MOCK and JG_MOCK_REF macros from jg::mock.
 
 namespace jg
 {
@@ -17,19 +17,10 @@ namespace win32
 {
 namespace wrappers
 {
-    // This is the namespace where jg::win32 wraps equally named Win32 API functions and just forwards
-    // the call to said Win32 API functions. The purpose of doing this is to get rid of the Win32 API
-    // *implementation* dependency in unit tests. This is a good place to define the wrapper functions
-    // so that the unit tests are abl to mock them.
-    //
-    // NOTE: These wrappers can often preferably be placed in small and specific wrapper interfaces
-    // instead, but some functions, like the 3 first ones below, must be callable from a "static context"
-    // (like a window procedure) where there are no good way to apply an interface instance in a "best
-    // practices" way.
 
-    JG_MOCK(,,, LONG_PTR, GetWindowLongPtrA, HWND, int);
-    JG_MOCK(,,, LONG_PTR, SetWindowLongPtrA, HWND, int, LONG_PTR);
-    JG_MOCK(,,, LRESULT, DefWindowProcA, HWND, UINT, WPARAM, LPARAM);
+JG_MOCK(,,, LONG_PTR, GetWindowLongPtrA, HWND, int);
+JG_MOCK(,,, LONG_PTR, SetWindowLongPtrA, HWND, int, LONG_PTR);
+JG_MOCK(,,, LRESULT, DefWindowProcA, HWND, UINT, WPARAM, LPARAM);
 
 } // namespace wrappers
 } // namespace win32
