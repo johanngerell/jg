@@ -1,5 +1,4 @@
 #define CATCH_CONFIG_MAIN
-#include <windows.h>
 #include "catch2/catch.hpp"
 #include "../inc/jg_mock.h"
 
@@ -11,17 +10,5 @@
 // preferably done here. Mocking such functions for usage in unit tests in different translation units is
 // made easier by using the JG_MOCK and JG_MOCK_REF macros from jg::mock.
 
-namespace jg
-{
-namespace win32
-{
-namespace wrappers
-{
-
-JG_MOCK(,,, LONG_PTR, GetWindowLongPtrA, HWND, int);
-JG_MOCK(,,, LONG_PTR, SetWindowLongPtrA, HWND, int, LONG_PTR);
-JG_MOCK(,,, LRESULT, DefWindowProcA, HWND, UINT, WPARAM, LPARAM);
-
-} // namespace wrappers
-} // namespace win32
-} // namespace jg
+// Used to verify that noexcept functions fail (as per jg::verify) when they should.
+JG_MOCK(,,, void, test_assert, bool);

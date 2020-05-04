@@ -17,11 +17,20 @@ endif()
 if (MSVC)
     add_compile_options(/Zc:__cplusplus /EHsc /W4 /WX)
 else()
-    add_compile_options(-Wall -Wextra -pedantic -Werror)
+    # jg::mock can't be used with -pedantic due to "the ##__VA_ARGS__ trick"
+    add_compile_options(-Wall -Wextra -Werror)
 endif()
 
+
 add_executable(jg_stacktrace samples/jg_stacktrace.cpp)
+
 add_executable(jg_span samples/jg_span.cpp)
 add_executable(jg_simple_logger samples/jg_simple_logger.cpp)
 add_executable(jg_flags samples/jg_flags.cpp)
-add_executable(jg_unit_tests tests/catch_main.cpp)
+
+add_executable(jg_unit_tests
+    tests/catch_main.cpp
+    tests/jg_optional_tests.cpp
+)
+
+target_compile_definitions(jg_unit_tests PRIVATE JG_VERIFY_ASSERTION=test_assert)

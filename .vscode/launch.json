@@ -33,6 +33,17 @@
             "cwd": "${workspaceFolder}",
             "environment": [],
             "externalConsole": true
+        },
+        {
+            "name": "(Windows) tests - jg_unit_tests - Debug",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/windows/debug/jg_unit_tests.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": true
         }
     ]
 }

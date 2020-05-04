@@ -46,32 +46,31 @@ static inline std::ostream& operator<<(std::ostream& stream, const stack_frame& 
 }
 
 /// @example
-///     if (broken_invariant)
-///        for (const auto& stack_frame :
-///            jg::stack_trace().include_frame_count(25).skip_frame_count(1).capture())
-///                std::cout << stack_frame << "\n";
+///     if (!invariant)
+///        for (const auto& stack_frame : jg::stack_trace().take(10).skip(1).capture())
+///            std::cout << stack_frame << "\n";
 class stack_trace final
 {
 public:
-    stack_trace& skip_frame_count(size_t count);
-    stack_trace& include_frame_count(size_t count);
+    stack_trace& skip(size_t count);
+    stack_trace& take(size_t count);
 
     std::vector<stack_frame> capture() const;
 
 private:
-    size_t m_skip_frame_count = 0;
-    size_t m_include_frame_count = 0;
+    size_t m_skip = 0;
+    size_t m_take = 0;
 };
 
-inline stack_trace& stack_trace::skip_frame_count(size_t count)
+inline stack_trace& stack_trace::skip(size_t count)
 {
-    m_skip_frame_count = count;
+    m_skip = count;
     return *this;
 }
 
-inline stack_trace& stack_trace::include_frame_count(size_t count)
+inline stack_trace& stack_trace::take(size_t count)
 {
-    m_include_frame_count = count;
+    m_take = count;
     return *this;
 }
 
@@ -81,9 +80,9 @@ inline std::vector<stack_frame> stack_trace::capture() const
     
 #ifdef _WIN32
 
-    std::vector<void*> back_trace(m_include_frame_count);
+    std::vector<void*> back_trace(m_take);
 
-    if (const auto frame_count = CaptureStackBackTrace(static_cast<DWORD>(m_skip_frame_count + 1),
+    if (const auto frame_count = CaptureStackBackTrace(static_cast<DWORD>(m_skip + 1),
                                                        static_cast<DWORD>(back_trace.size()),
                                                        back_trace.data(),
                                                        nullptr))

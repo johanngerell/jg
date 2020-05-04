@@ -3,6 +3,10 @@
 #include <cassert>
 #include "jg_stacktrace.h"
 
+#if defined(JG_VERIFY_ASSERTION)
+    void JG_VERIFY_ASSERTION(bool);
+#endif
+
 namespace jg
 {
 
@@ -10,29 +14,30 @@ namespace jg
 ///
 /// If `condition` is `false` and...
 ///
-///   * JG_VERIFY_ENABLE_STACK_TRACE is defined, or NDEBUG isn't defined, then a stack trace is written to `stdout`,
+///   * JG_VERIFY_ENABLE_STACK_TRACE is defined, then a stack trace is written to `stdout`,
 ///   * JG_VERIFY_ENABLE_TERMINATE is defined, then `std::terminate()` is called,
 ///   * JG_VERIFY_ENABLE_TERMINATE isn't defined, then `assert(condition)` fails (which is a no-op if NDEBUG is defined).
 ///
-/// If NDEBUG is defined and neither JG_VERIFY_ENABLE_STACK_TRACE nor JG_VERIFY_ENABLE_TERMINATE is defined, then
-/// this function will be a no-op in an optimized build.
+/// If NDEBUG is defined and neither JG_VERIFY_ENABLE_STACK_TRACE, JG_VERIFY_ENABLE_TERMINATE, or
+/// JG_VERIFY_ASSERTION is defined, then this function will be a no-op in an optimized build.
 ///
 /// The compilation flags JG_VERIFY_ENABLE_STACK_TRACE and JG_VERIFY_ENABLE_TERMINATE enables a "checked release" build
 /// configuration which is optimized, but still fails fast and hard in tests.
 inline void verify(bool condition)
 {
-#if defined(JG_VERIFY_ENABLE_STACK_TRACE) || !defined(NDEBUG)
+#if defined(JG_VERIFY_ENABLE_STACK_TRACE)
     if (!condition)
-        for (const auto& frame : jg::stack_trace()
-                                 .include_frame_count(10)
-                                 .skip_frame_count(1)
-                                 .capture())
+        for (const auto& frame : stack_trace().take(10).skip(1).capture())
             std::cout << frame << "\n";
 #endif
 
 #if defined(JG_VERIFY_ENABLE_TERMINATE)
     if (!condition)
         std::terminate();
+#endif
+
+#if defined(JG_VERIFY_ASSERTION)
+    JG_VERIFY_ASSERTION(condition);
 #else
     assert(condition);
 #endif
@@ -49,34 +54,24 @@ inline void verify(bool condition)
 /// If NDEBUG is defined then this function will be a no-op (a.k.a. a release build).
 inline void debug_verify(bool condition)
 {
-#if defined(NDEBUG)
     (void)condition;
-#else
-#if defined(JG_VERIFY_ENABLE_STACK_TRACE) 
-    if (!condition)
-        for (const auto& frame : jg::stack_trace()
-                                 .include_frame_count(10)
-                                 .skip_frame_count(1)
-                                 .capture())
-            std::cout << frame << "\n";
-#endif
-#if defined(JG_VERIFY_ENABLE_TERMINATE)
-    if (!condition)
-        std::terminate();
-#else
-    assert(condition);
-#endif
+
+#if !defined(NDEBUG)
+    verify(condition);
 #endif
 }
 
 template <typename Func>
 inline void debug_verify(bool condition, Func on_failure)
 {
+    (void)condition;
+    (void)on_failure;
+
 #if !defined(NDEBUG)
     if (!condition)
         on_failure();
+    verify(condition);
 #endif
-    debug_verify(condition);
 }
 
 /// Calls `verify(ptr)` and returns `ptr`. Will be a no-op when `verify(ptr)` is a no-op.

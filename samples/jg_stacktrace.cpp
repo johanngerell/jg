@@ -4,9 +4,9 @@
 auto get_trace()
 {
     return jg::stack_trace()
-               .include_frame_count(10) // actual count can be less
-               .skip_frame_count(1) // skips get_trace()
-               .capture();
+           .take(10) // the actual count can be less
+           .skip(1)  // skips get_trace()
+           .capture();
 }
 
 int main()
