@@ -59,7 +59,7 @@ private:
         , m_ms{ms}
     {}
 
-    int64_t  m_time{};
+    time_t  m_time{};
     uint16_t m_ms{};
 };
 

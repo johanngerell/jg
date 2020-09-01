@@ -16,7 +16,11 @@
 #include <memory>
 #include <execinfo.h>
 #include <unistd.h>
+#ifdef __APPLE__
+#include <limits.h> // PATH_MAX
+#else
 #include <linux/limits.h> // PATH_MAX
+#endif
 #endif
 
 namespace jg
