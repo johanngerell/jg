@@ -51,7 +51,7 @@ private:
 };
 
 template <typename T, size_t N>
-constexpr static span<T> make_span(T (&array)[N])
+constexpr inline span<T> make_span(T (&array)[N])
 {
     return span<T>::from_array(array);
 }

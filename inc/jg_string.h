@@ -23,6 +23,8 @@ inline std::string& trim(std::string& string, const std::string& chars = "\t\n\v
     return trim_left(trim_right(string, chars), chars);
 }
 
+#if 0
+
 class string_ref
 {
 public:
@@ -143,4 +145,6 @@ inline bool operator!=(const fixed_string<N>& first, const string_ref& second)
     return !(first == second);
 }
 
-}
+#endif
+
+} // namespace jg

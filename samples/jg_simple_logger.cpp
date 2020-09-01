@@ -27,7 +27,7 @@ int main()
     jg::stopwatch stopwatch;
     for (const auto& log : logs)
         jg::log() << log;
-    std::cout << "\n... " << stopwatch.ms() << " ms\n";
+    std::cout << "\n... " << stopwatch.us() << " us\n";
     
 
     std::cout << "\n10 'cooked' logs, v1...\n\n";
@@ -41,13 +41,13 @@ int main()
     stopwatch.restart();
     for (size_t i = 0; i < 10; ++i)
         std::clog << timestamps[i] << logs[i];
-    std::cout << "\n... " << stopwatch.ms() << " ms\n";
+    std::cout << "\n... " << stopwatch.us() << " us\n";
 
     std::cout << "\n10 'cooked' logs, v2...\n\n";
     stopwatch.restart();
     for (size_t i = 0; i < 10; ++i)
         std::clog << to_string(timestamps[i]) << logs[i];
-    std::cout << "\n... " << stopwatch.ms() << " ms\n";
+    std::cout << "\n... " << stopwatch.us() << " us\n";
 
     std::cout << "\n...done";
 }

@@ -5,6 +5,18 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "(Mac) samples - jg_simple_logger - Debug",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/mac/debug/jg_simple_logger",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "lldb"
+        },
+        {
             "name": "(Linux) samples - jg_stacktrace - Debug",
             "type": "cppdbg",
             "request": "launch",

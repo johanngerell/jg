@@ -18,7 +18,7 @@ int main()
 
     const foo foos[] { { "true=", true }, { "false=", false } };
 
-    for (const auto f : jg::make_span(foos)) 
+    for (const auto& f : jg::make_span(foos)) 
         std::cout << std::boolalpha << f.s << f.b << "\n";
 
     std::cout << "\n...done";

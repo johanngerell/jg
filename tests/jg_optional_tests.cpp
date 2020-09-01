@@ -22,9 +22,9 @@ void REQUIRE_ACCESSOR_ASSERT(Op op)
 
 void REQUIRE_ACCESSORS_ASSERT(const jg::optional<my_type>& optional)
 {
-    REQUIRE_ACCESSOR_ASSERT([&] { optional.value(); });
-    REQUIRE_ACCESSOR_ASSERT([&] { optional->i; });
-    REQUIRE_ACCESSOR_ASSERT([&] { (*optional).i; });
+    REQUIRE_ACCESSOR_ASSERT([&] { (void)optional.value(); });
+    REQUIRE_ACCESSOR_ASSERT([&] { (void)optional->i; });
+    REQUIRE_ACCESSOR_ASSERT([&] { (void)(*optional).i; });
 }
 
 void REQUIRE_ACCESSORS(const jg::optional<my_type>& optional, int i, bool b, const std::string& s)
@@ -122,7 +122,7 @@ TEST_CASE("jg_optional")
         SECTION("Assigned with rvalue optional has value - alt 1")
         {
             jg::optional<my_type> optional{my_type{4712, false, "foo"}};
-            optional = std::move(jg::optional<my_type>{my_type{4711, true, "foobar"}});
+            optional = jg::optional<my_type>{my_type{4711, true, "foobar"}};
             
             REQUIRE(optional);
             REQUIRE(optional.has_value());
@@ -154,7 +154,7 @@ TEST_CASE("jg_optional")
         SECTION("Assigned with rvalue has value - alt 1")
         {
             jg::optional<my_type> optional{my_type{4712, false, "bar"}};
-            optional = std::move(my_type{4711, true, "foobar"});
+            optional = my_type{4711, true, "foobar"};
             
             REQUIRE(optional);
             REQUIRE(optional.has_value());
