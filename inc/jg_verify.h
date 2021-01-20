@@ -23,7 +23,7 @@ namespace jg
 ///
 /// The compilation flags JG_VERIFY_ENABLE_STACK_TRACE and JG_VERIFY_ENABLE_TERMINATE enables a "checked release" build
 /// configuration which is optimized, but still fails fast and hard in tests.
-inline void verify(bool condition)
+inline void verify([[maybe_unused]] bool condition)
 {
 #if defined(JG_VERIFY_ENABLE_STACK_TRACE)
     if (!condition)
