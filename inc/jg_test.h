@@ -51,10 +51,11 @@ int test_run(test_suites&& suites)
 
         for (auto& suite : suites)
         {
-            state_scope_value test_suite_scope(detail::g_test_suite, &suite, nullptr);
             std::cout << "Running test suite ";
             jg::ostream_color_scope(std::cout, jg::fg_cyan_bright()) << '\'' << suite.description << "'\n";
             statistics.case_count += suite.tests.size();
+
+            state_scope_value test_suite_scope(detail::g_test_suite, &suite, nullptr);
 
             for (auto& test : suite.tests)
             {
@@ -100,8 +101,7 @@ inline void test_assert_impl(bool expr_value, const char* expr_string, const cha
     if (g_test_case && g_test_case->assertion_fail_count++ == 0)
     {
         jg::ostream_color_scope(std::cout, jg::fg_red_bright()) << "  Failed test case ";
-        jg::ostream_color_scope(std::cout, jg::fg_cyan_bright()) << '\'' << g_test_case->description << '\'';
-        std::cout << '\n';
+        jg::ostream_color_scope(std::cout, jg::fg_cyan_bright()) << '\'' << g_test_case->description << "'\n";
     }
 
     if (g_test_statistics)
@@ -110,7 +110,7 @@ inline void test_assert_impl(bool expr_value, const char* expr_string, const cha
     jg::ostream_color_scope(std::cout, jg::fg_red_bright()) << "    Failed test assertion ";
     jg::ostream_color_scope(std::cout, jg::fg_cyan_bright()) << '\'' << expr_string << '\'';
     std::cout << " at ";
-    jg::ostream_color_scope(std::cout, jg::fg_magenta_bright()) << file << ":" << line << '\n';
+    jg::ostream_color_scope(std::cout, jg::fg_magenta_bright()) << file << ':' << line << '\n';
 }
 
 } // namespace detail
