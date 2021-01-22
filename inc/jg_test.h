@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <functional>
+#include "jg_state_scope.h"
 #include "jg_ostream_color_scope.h"
 
 namespace jg
@@ -46,30 +47,24 @@ int test_run(test_suites&& suites)
     statistics.suite_count = suites.size();
 
     {
-        detail::g_test_statistics = &statistics; // TODO: use state_scope_value
+        state_scope_value test_statistics_scope(detail::g_test_statistics, &statistics, nullptr);
 
         for (auto& suite : suites)
         {
-            detail::g_test_suite = &suite;
+            state_scope_value test_suite_scope(detail::g_test_suite, &suite, nullptr);
             std::cout << "Running test suite ";
             jg::ostream_color_scope(std::cout, jg::fg_cyan_bright()) << '\'' << suite.description << "'\n";
             statistics.case_count += suite.tests.size();
 
             for (auto& test : suite.tests)
             {
-                detail::g_test_case = &test;
+                state_scope_value test_case_scope(detail::g_test_case, &test, nullptr);
                 test.func();
 
                 if(test.assertion_fail_count > 0)
                     statistics.case_fail_count++;
-
-                detail::g_test_case = nullptr;
             }
-
-            detail::g_test_suite = nullptr;
         }
-
-        detail::g_test_statistics = nullptr;
     }
 
     if (statistics.case_count == 0)
