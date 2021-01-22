@@ -51,7 +51,8 @@ int test_run(test_suites&& suites)
         for (auto& suite : suites)
         {
             detail::g_test_suite = &suite;
-            std::cout << "Running test suite '" << suite.description << "'\n";
+            std::cout << "Running test suite ";
+            jg::ostream_color_scope(std::cout, jg::fg_cyan_bright()) << '\'' << suite.description << "'\n";
             statistics.case_count += suite.tests.size();
 
             for (auto& test : suite.tests)
@@ -72,15 +73,15 @@ int test_run(test_suites&& suites)
     }
 
     if (statistics.case_count == 0)
-        jg::ostream_color_scope(std::cout, jg::fg_yellow()) << "No test cases\n";
+        jg::ostream_color_scope(std::cout, jg::fg_yellow_bright()) << "No test cases\n";
     else
     {
         if (statistics.assertion_fail_count == 0)
-            jg::ostream_color_scope(std::cout, jg::fg_green()) << "All tests succeeded\n";
+            jg::ostream_color_scope(std::cout, jg::fg_green_bright()) << "All tests succeeded\n";
 
-        std::cout << statistics.assertion_count  << (statistics.assertion_count == 1 ? " test assertion" : " test assertions") << "\n"
-                  << statistics.case_count       << (statistics.case_count == 1 ? " test case" : " test cases") << "\n"
-                  << statistics.suite_count      << (statistics.suite_count == 1 ? " test suite" : " test suites") << "\n";
+        std::cout << statistics.assertion_count  << (statistics.assertion_count == 1 ? " test assertion" : " test assertions") << '\n'
+                  << statistics.case_count       << (statistics.case_count == 1 ? " test case" : " test cases") << '\n'
+                  << statistics.suite_count      << (statistics.suite_count == 1 ? " test suite" : " test suites") << '\n';
     }
 
     return static_cast<int>(statistics.assertion_fail_count);
@@ -103,15 +104,18 @@ inline void test_assert_impl(bool expr_value, const char* expr_string, const cha
 
     if (g_test_case && g_test_case->assertion_fail_count++ == 0)
     {
-        jg::ostream_color_scope(std::cout, jg::fg_red()) << "  Failed test case ";
-        std::cout << "'" << g_test_case->description << "'\n";
+        jg::ostream_color_scope(std::cout, jg::fg_red_bright()) << "  Failed test case ";
+        jg::ostream_color_scope(std::cout, jg::fg_cyan_bright()) << '\'' << g_test_case->description << '\'';
+        std::cout << '\n';
     }
 
     if (g_test_statistics)
         g_test_statistics->assertion_fail_count++;
 
-    jg::ostream_color_scope(std::cout, jg::fg_red()) << "    Failed test assertion ";
-    std::cout << "'" << expr_string << "' at " << file << ":" << line << "\n";
+    jg::ostream_color_scope(std::cout, jg::fg_red_bright()) << "    Failed test assertion ";
+    jg::ostream_color_scope(std::cout, jg::fg_cyan_bright()) << '\'' << expr_string << '\'';
+    std::cout << " at ";
+    jg::ostream_color_scope(std::cout, jg::fg_magenta_bright()) << file << ":" << line << '\n';
 }
 
 } // namespace detail
