@@ -14,6 +14,10 @@ Create the configuration:
     > cd build\windows
     > cmake ..\.. -G "Visual Studio 15 2017 Win64"
 
+or
+
+    > cmake ..\.. -G "Visual Studio 16 2019" -A Win64
+
 Build all targets in Debug (the default):
 
     > cd build\windows

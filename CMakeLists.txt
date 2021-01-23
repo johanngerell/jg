@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 
 project(jg)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -23,14 +23,9 @@ endif()
 
 
 add_executable(jg_stacktrace samples/jg_stacktrace.cpp)
-
 add_executable(jg_span samples/jg_span.cpp)
 add_executable(jg_simple_logger samples/jg_simple_logger.cpp)
 add_executable(jg_flags samples/jg_flags.cpp)
-
-add_executable(jg_unit_tests
-    tests/catch_main.cpp
-    tests/jg_optional_tests.cpp
-)
+add_executable(jg_unit_tests tests/catch_main.cpp tests/jg_optional_tests.cpp)
 
 target_compile_definitions(jg_unit_tests PRIVATE JG_VERIFY_ASSERTION=test_assert)
