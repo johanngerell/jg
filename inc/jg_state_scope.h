@@ -56,7 +56,7 @@ public:
 
 private:
     T* m_instance;
-    V m_exit_value;
+    T m_exit_value;
 };
 
 /// @class jg::state_scope_action

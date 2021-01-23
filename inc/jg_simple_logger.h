@@ -32,7 +32,7 @@ public:
         // equally long ".mmm " milliseconds part, and replace the \n with a \0 to end the string there.
         static_assert(sizeof(buffer) == sizeof("Www Mmm dd hh:mm:ss yyyy\n"), "");
 
-        auto format_time = [&]
+        auto format_time = [&] () -> bool
         {
 #ifdef _WIN32
             return ctime_s(buffer, sizeof(buffer), &m_time) == 0;
@@ -41,7 +41,7 @@ public:
 #endif
         };
 
-        auto format_ms = [&]
+        auto format_ms = [&] () -> bool
         {
             constexpr size_t ms_offset = sizeof("Www Mmm dd hh:mm:ss") - 1;
             constexpr size_t ms_size = sizeof(buffer) - ms_offset;
