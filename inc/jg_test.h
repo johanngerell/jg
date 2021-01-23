@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <functional>
+#include <vector>
 #include "jg_state_scope.h"
 #include "jg_ostream_color_scope.h"
 

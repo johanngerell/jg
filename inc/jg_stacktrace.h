@@ -5,22 +5,22 @@
 #include <iostream>
 #include <cstdint>
 
-#ifdef _WIN32
-#include <mutex>
-#include <process.h>
-#include <windows.h>
-#include <dbghelp.h>
-#pragma comment(lib, "dbghelp.lib")
+#if defined(_WIN32)
+    #include <mutex>
+    #include <process.h>
+    #include <windows.h>
+    #include <dbghelp.h>
+    #pragma comment(lib, "dbghelp.lib")
 #else
-#include <regex>
-#include <memory>
-#include <execinfo.h>
-#include <unistd.h>
-#ifdef __APPLE__
-#include <limits.h> // PATH_MAX
-#else
-#include <linux/limits.h> // PATH_MAX
-#endif
+    #include <regex>
+    #include <memory>
+    #include <execinfo.h>
+    #include <unistd.h>
+    #if defined(__APPLE__)
+        #include <sys/syslimits.h>
+    #elif defined(__linux__) 
+        #include <linux/limits.h> // PATH_MAX
+    #endif
 #endif
 
 namespace jg
