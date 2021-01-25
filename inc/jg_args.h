@@ -9,17 +9,16 @@ class args final
 {
 public:
     args() = default;
-    args(int argc, char** argv) : m_argc{argc}, m_argv{argv} {}
+    args(int argc, char** argv) : m_args{&argv[0], &argv[0] + argc} {}
 
     using iterator = char**;
     using const_iterator = const iterator;
 
-    constexpr const_iterator begin() const { return &m_argv[0]; }
-    constexpr const_iterator end() const { return begin() + m_argc; }
+    constexpr const_iterator begin() const { return m_args.begin(); }
+    constexpr const_iterator end() const { return m_args.end(); }
 
 private:
-    int m_argc{};
-    char** m_argv{};
+    jg::span<char*> m_args;
 };
 
 constexpr std::optional<std::string_view> arg_key_value(std::string_view arg, std::string_view key)
