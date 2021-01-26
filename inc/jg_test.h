@@ -63,7 +63,7 @@ int test_run(test_suites&& suites)
                 state_scope_value test_case_scope(detail::g_test_case, &test, nullptr);
                 test.func();
 
-                if(test.assertion_fail_count > 0)
+                if (test.assertion_fail_count > 0)
                     statistics.case_fail_count++;
             }
         }

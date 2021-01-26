@@ -49,5 +49,26 @@ int main()
         std::clog << to_string(timestamps[i]) << logs[i];
     std::cout << "\n... " << stopwatch.us() << " us\n";
 
-    std::cout << "\n...done";
+    std::cout << "\n10 timestamps...\n\n";
+    stopwatch.restart();
+    for (size_t i = 0; i < 10; ++i)
+        timestamps[i] = jg::timestamp::now();
+    std::cout << "... " << stopwatch.us() << " us\n";
+    std::cout << "... last: " << timestamps.back() << "\n... first: " << timestamps.front() << "\n";
+
+    std::cout << "\n10 to_string(timestamp)...\n\n";
+    std::vector<std::string> strings(10);
+    stopwatch.restart();
+    for (size_t i = 0; i < 10; ++i)
+        strings[i] = to_string(timestamps[i]);
+    std::cout << "... " << stopwatch.us() << " us\n";
+    std::cout << "... last: " << strings.back() << "\n... first: " << strings.front() << "\n";
+
+    std::cout << "\n10 operator<<(ostream, timestamp)...\n\n";
+    stopwatch.restart();
+    for (size_t i = 0; i < 10; ++i)
+        std::clog << timestamps[i] << "\n";
+    std::cout << "... " << stopwatch.us() << " us\n";
+
+    std::cout << "\n...done\n";
 }
