@@ -16,5 +16,5 @@ int main()
     for (const auto& frame : get_trace()) 
         std::cout << frame << "\n";
     
-    std::cout << "\n...done";
+    std::cout << "\n...done\n";
 }

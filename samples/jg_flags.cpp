@@ -28,5 +28,5 @@ int main()
     std::cout << "o3.has(second) is " << std::boolalpha << o3.has(options::second) << '\n';
     std::cout << "o3.has(third) is " << std::boolalpha << o3.has(options::third) << '\n';
 
-    std::cout << "\n...done";
+    std::cout << "\n...done\n";
 }

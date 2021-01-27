@@ -5,51 +5,70 @@
 namespace jg
 {
 
+/// Provides iteration over the command line arguments given to the main function in C and C++ programs.
+///
+/// @note Subsystems that use other entry points than `main()` often expose the corresponding command
+///       line parameters in other ways. For instance, Windows GUI programs that use `WinMain()` can
+///       access them in the C runtime variables __argc and __argv.
+/// @note An argc-argv pair that is supplied by the system is trusted by jg::args; the array pointed at
+///       by argv is assumed to always have argc entries.
 class args final
 {
 public:
     args() = default;
-    args(int argc, char** argv) : m_args{&argv[0], &argv[0] + argc} {}
+    args(int argc, char** argv)
+        : m_first{&argv[0]}
+        , m_last{m_first + argc}
+    {}
 
     using iterator = char**;
     using const_iterator = const iterator;
 
-    constexpr const_iterator begin() const { return m_args.begin(); }
-    constexpr const_iterator end() const { return m_args.end(); }
+    constexpr const_iterator begin() const { return m_first; }
+    constexpr const_iterator end() const { return m_last; }
 
 private:
-    jg::span<char*> m_args;
+    const_iterator m_first{};
+    const_iterator m_last{};
 };
 
-constexpr std::optional<std::string_view> arg_key_value(std::string_view arg, std::string_view key)
+namespace detail
 {
-    if (starts_with(arg, key))
-        return arg.substr(key.length());
+
+// algorithms aren't constexpr in C++17
+template <typename FwdIt, typename Pred>
+constexpr FwdIt find_if(FwdIt first, FwdIt last, Pred pred)
+{
+    for (; first != last; ++first)
+        if (pred(*first))
+            return first;
+    
+    return last;
+}
+
+} // namespace detail
+
+constexpr std::optional<std::string_view> args_key_value(jg::args args, std::string_view key) noexcept
+{
+    // std::find_if in C++20
+    auto it = detail::find_if(args.begin(),
+                              args.end(),
+                              [key] (auto& arg) { return starts_with(arg, key); });
+
+    if (it != args.end())
+        return std::string_view(*it).substr(key.length());
     
     return std::nullopt;
 }
 
-constexpr std::optional<std::string_view> args_key_value(jg::args args, std::string_view key)
+constexpr bool args_has_key(jg::args args, std::string_view key) noexcept
 {
-    for (auto arg : args)
-        if (auto value = arg_key_value(arg, key))
-            return value;
+    // std::any_of in C++20
+    auto it = detail::find_if(args.begin(),
+                              args.end(),
+                              [key] (auto& arg) { return key == arg; });
 
-    return std::nullopt;
-}
-
-constexpr bool args_has_key(jg::args args, std::string_view key)
-{
-    // algorithms aren't constexpr in C++17
-    // return std::any_of(args.begin(),
-    //                    args.end(),
-    //                    [key] (auto& arg) { return arg == key; });
-
-    for (const auto arg : args)
-        if (arg == key)
-            return true;
-    
-    return false;
+    return it != args.end();
 }
 
 } // namespace jg

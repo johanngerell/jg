@@ -21,5 +21,5 @@ int main()
     for (const auto& f : jg::make_span(foos)) 
         std::cout << std::boolalpha << f.s << f.b << "\n";
 
-    std::cout << "\n...done";
+    std::cout << "\n...done\n";
 }
