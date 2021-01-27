@@ -35,9 +35,9 @@ public:
         auto format_time = [&] () -> bool
         {
 #ifdef _WIN32
-            return ctime_s(buffer, sizeof(buffer), &m_time) == 0;
+            return ctime_s(buffer, sizeof(buffer), &m_s) == 0;
 #else
-            return ctime_r(&m_time, buffer) != nullptr;
+            return ctime_r(&m_s, buffer) != nullptr;
 #endif
         };
 
@@ -54,13 +54,13 @@ public:
     }
 
 private:
-    timestamp(int64_t time, uint16_t ms)
-        : m_time{time}
+    timestamp(time_t s, unsigned short ms)
+        : m_s{s}
         , m_ms{ms}
     {}
 
-    time_t  m_time{};
-    uint16_t m_ms{};
+    time_t  m_s{};
+    unsigned short m_ms{};
 };
 
 inline std::string to_string(const timestamp& timestamp)
