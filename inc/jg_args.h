@@ -28,8 +28,8 @@ public:
     constexpr const_iterator end() const { return m_last; }
 
 private:
-    const_iterator m_first{};
-    const_iterator m_last{};
+    iterator m_first{};
+    iterator m_last{};
 };
 
 namespace detail
