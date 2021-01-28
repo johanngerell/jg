@@ -5,18 +5,18 @@
 namespace jg
 {
 
-/// Provides iteration over the command line arguments given to the main function in C and C++ programs.
+/// Iterates over command line arguments passed to the main() function in its argc-argv parameters.
 ///
-/// @note Subsystems that use other entry points than `main()` often expose the corresponding command
-///       line parameters in other ways. For instance, Windows GUI programs that use `WinMain()` can
-///       access them in the C runtime variables __argc and __argv.
-/// @note An argc-argv pair that is supplied by the system is trusted by jg::args; the array pointed at
-///       by argv is assumed to always have argc entries.
+/// @note Subsystems that use other entry points than main() often expose the corresponding command line
+///       arguments in other ways. For instance, Windows GUI programs that use WinMain() can access
+///       them in the C runtime variables __argc and __argv.
+/// @note An argc-argv pair supplied by the system is trusted by jg::args; As per spec, the array pointed
+///       at by argv is assumed to always have argc + 1 entries, where argv[argc] is nullptr.
 class args final
 {
 public:
-    args() = default;
-    args(int argc, char** argv)
+    constexpr args() = default;
+    constexpr args(int argc, char** argv)
         : m_first{&argv[0]}
         , m_last{m_first + argc}
     {}
@@ -35,7 +35,7 @@ private:
 namespace detail
 {
 
-// algorithms aren't constexpr in C++17
+// Algorithms aren't constexpr in C++17
 template <typename FwdIt, typename Pred>
 constexpr FwdIt find_if(FwdIt first, FwdIt last, Pred pred)
 {
@@ -48,22 +48,28 @@ constexpr FwdIt find_if(FwdIt first, FwdIt last, Pred pred)
 
 } // namespace detail
 
+/// Checks if there is an item in `args` that starts with `key` and then returns the remainder of the item.
+/// If the item is "--foo=bar", then a check for the key "--foo=" will return "bar".
+/// If no item starts with `key`, then `std::nullopt` is returned.
 constexpr std::optional<std::string_view> args_key_value(jg::args args, std::string_view key) noexcept
 {
-    // std::find_if in C++20
+    // Use std::find_if in C++20
     auto it = detail::find_if(args.begin(),
                               args.end(),
                               [key] (auto& arg) { return starts_with(arg, key); });
 
     if (it != args.end())
         return std::string_view(*it).substr(key.length());
+        //return *it + key.length();
     
     return std::nullopt;
 }
 
+/// Checks if there is an item in `args` that equals `key`.
+/// If the item is "--foo=bar", then the key "--foo" isn't a match.
 constexpr bool args_has_key(jg::args args, std::string_view key) noexcept
 {
-    // std::any_of in C++20
+    // Use std::any_of in C++20
     auto it = detail::find_if(args.begin(),
                               args.end(),
                               [key] (auto& arg) { return key == arg; });
