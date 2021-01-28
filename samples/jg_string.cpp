@@ -99,8 +99,6 @@ jg::test_suite test_string_split()
 
 int main()
 {
-    std::cout << "jg_string sample...\n\n";
-
     return jg::test_run(
     {
         test_string_split()
