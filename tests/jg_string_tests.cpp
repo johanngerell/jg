@@ -1,4 +1,3 @@
-#include <iostream>
 #include <jg_string.h>
 #include <jg_test.h>
 
@@ -95,12 +94,4 @@ jg::test_suite test_string_split()
             jg_test_assert(!tokens.has_value());
         }}
     }};
-}
-
-int main()
-{
-    return jg::test_run(
-    {
-        test_string_split()
-    });
 }

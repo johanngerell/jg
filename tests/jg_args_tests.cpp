@@ -1,5 +1,4 @@
 #include <initializer_list>
-#include <iostream>
 #include <vector>
 #include <jg_args.h>
 #include <jg_test.h>
@@ -158,13 +157,4 @@ jg::test_suite test_args()
             jg_test_assert(!jg::args_key_value(cmdline{"--foo=abc", "--bar=def", "--baz=ghi"}.args(), "--acme="));
         }}
     }};
-}
-
-int main()
-{
-    return jg::test_run(
-    {
-        test_cmdline(),
-        test_args()
-    });
 }
