@@ -42,7 +42,7 @@ void REQUIRE_ACCESSORS(const jg::optional<my_type>& optional, int i, bool b, con
 
 jg::test_suite test_optional()
 {
-    return { "jg::optional", {
+    return { "jg_optional", {
         { "Overhead is one bool + alignment padding", [] {
             jg_test_assert(sizeof(jg::optional<my_type>) - sizeof(my_type) - sizeof(bool) < sizeof(void*));
         }},

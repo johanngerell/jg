@@ -49,11 +49,12 @@ private:
 
 } // namespace test_helpers
 
-jg::test_suite test_cmdline()
+jg::test_suite test_args()
 {
     using namespace test_helpers;
 
-    return { "test_helpers::cmdline", {
+    return { "jg_args", {
+        // test_helpers::cmdline
         { "default constructed => expected empty traits", [] {
             cmdline empty{};
             jg_test_assert(empty.argc() == 0);
@@ -74,13 +75,7 @@ jg::test_suite test_cmdline()
             jg_test_assert(threeargs.argv()[3] == nullptr);
             jg_test_assert(std::next(threeargs.args().begin(), 3) == threeargs.args().end());
             jg_test_assert(threeargs.joined() == "1 2 3");
-        }}
-    }};
-}
-
-jg::test_suite test_args()
-{
-    return { "jg_args", {
+        }},
         // iterator range
         { "default construction => empty iterator range", [] {
             const jg::args args;
@@ -100,60 +95,48 @@ jg::test_suite test_args()
         }},
         // args_has_key
         { "argc == 0 => key not found", [] {
-            using namespace test_helpers;
             jg_test_assert(!jg::args_has_key(cmdline{}.args(), ""));
             jg_test_assert(!jg::args_has_key(cmdline{}.args(), "foo"));
         }},
         { "argc == 1 => existing key is found", [] {
-            using namespace test_helpers;
             jg_test_assert(jg::args_has_key(cmdline{"--foo"}.args(), "--foo"));
         }},
         { "argc == 1 => non existing key is not found", [] {
-            using namespace test_helpers;
             jg_test_assert(!jg::args_has_key(cmdline{"--foo"}.args(), "--bar"));
         }},
         { "argc == 1 => partial key is not found", [] {
-            using namespace test_helpers;
             jg_test_assert(!jg::args_has_key(cmdline{"--foo=bar"}.args(), "--foo"));
         }},
         { "argc == 3 => existing key is found", [] {
-            using namespace test_helpers;
             jg_test_assert(jg::args_has_key(cmdline{"--foo", "--bar", "--baz"}.args(), "--foo"));
             jg_test_assert(jg::args_has_key(cmdline{"--foo", "--bar", "--baz"}.args(), "--bar"));
             jg_test_assert(jg::args_has_key(cmdline{"--foo", "--bar", "--baz"}.args(), "--baz"));
         }},
         { "argc == 3 => non existing key is not found", [] {
-            using namespace test_helpers;
             jg_test_assert(!jg::args_has_key(cmdline{"--foo", "--bar", "--baz"}.args(), "--acme"));
         }},
         { "argc == 3 => partial key is not found", [] {
-            using namespace test_helpers;
             jg_test_assert(!jg::args_has_key(cmdline{"--foo=1", "--bar=2", "--baz=3"}.args(), "--foo"));
             jg_test_assert(!jg::args_has_key(cmdline{"--foo=1", "--bar=2", "--baz=3"}.args(), "--bar"));
             jg_test_assert(!jg::args_has_key(cmdline{"--foo=1", "--bar=2", "--baz=3"}.args(), "--baz"));
         }},
         // args_key_value
         { "argc == 0 => value not found", [] {
-            using namespace test_helpers;
             jg_test_assert(!jg::args_key_value(cmdline{}.args(), ""));
             jg_test_assert(!jg::args_key_value(cmdline{}.args(), "foo"));
         }},
         { "argc == 1 => existing key value is found", [] {
-            using namespace test_helpers;
             jg_test_assert(jg::args_key_value(cmdline{"--foo=bar"}.args(), "--foo=").value() == "bar");
         }},
         { "argc == 1 => non existing key value is not found", [] {
-            using namespace test_helpers;
             jg_test_assert(!jg::args_key_value(cmdline{"--foo=bar"}.args(), "--bar"));
         }},
         { "argc == 3 => existing key value is found", [] {
-            using namespace test_helpers;
             jg_test_assert(jg::args_key_value(cmdline{"--foo=abc", "--bar=def", "--baz=ghi"}.args(), "--foo=").value() == "abc");
             jg_test_assert(jg::args_key_value(cmdline{"--foo=abc", "--bar=def", "--baz=ghi"}.args(), "--bar=").value() == "def");
             jg_test_assert(jg::args_key_value(cmdline{"--foo=abc", "--bar=def", "--baz=ghi"}.args(), "--baz=").value() == "ghi");
         }},
         { "argc == 3 => non existing key value is not found", [] {
-            using namespace test_helpers;
             jg_test_assert(!jg::args_key_value(cmdline{"--foo=abc", "--bar=def", "--baz=ghi"}.args(), "--acme="));
         }}
     }};

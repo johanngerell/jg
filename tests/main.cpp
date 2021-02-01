@@ -11,18 +11,16 @@
 // Used to verify that noexcept functions in jg "fail" (as per jg::verify) when they should.
 JG_MOCK(,,, void, mock_assert, bool);
 
-jg::test_suite test_cmdline();
 jg::test_suite test_args();
 jg::test_suite test_optional();
-jg::test_suite test_string_split();
+jg::test_suite test_string();
 
 int main()
 {
     return jg::test_run(
     {
-        test_cmdline(),
         test_args(),
         test_optional(),
-        test_string_split()
+        test_string()
     });
 }

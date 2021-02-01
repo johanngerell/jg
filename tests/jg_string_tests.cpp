@@ -1,9 +1,9 @@
 #include <jg_string.h>
 #include <jg_test.h>
 
-jg::test_suite test_string_split()
+jg::test_suite test_string()
 {
-    return { "jg_string - jg::split", {
+    return { "jg_string - split", {
         // positive
         { "One expected token - empty string is an empty but valid token", [] {
             const auto tokens = jg::split<1>("", ',');
