@@ -28,6 +28,6 @@ add_executable(jg_simple_logger samples/jg_simple_logger.cpp)
 add_executable(jg_flags samples/jg_flags.cpp)
 add_executable(jg_args samples/jg_args.cpp)
 add_executable(jg_string samples/jg_string.cpp)
-add_executable(jg_unit_tests tests/catch_main.cpp tests/jg_optional_tests.cpp)
+add_executable(jg_unit_tests tests/main.cpp tests/jg_optional_tests.cpp)
 
 target_compile_definitions(jg_unit_tests PRIVATE JG_VERIFY_ASSERTION=mock_assert)
