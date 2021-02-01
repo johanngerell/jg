@@ -1,14 +1,22 @@
-#define CATCH_CONFIG_MAIN
-#include "catch2/catch.hpp"
-#include "../inc/jg_mock.h"
+#include <jg_mock.h>
+#include <jg_test.h>
 
 // There should be NO tests in this file. We only want to compile this file ONCE. It'll reduce the total
-// test compilation time, since it'll put the entire Catch2 implementation in one translation unit, which
-// won't change when individual tests in other files change.
+// test compilation time as only individual tests in other translation units change.
 
 // Link-time function dependencies that needs mocking in unit tests can only be defined once, and that is
-// preferably done here. Mocking such functions for usage in unit tests in different translation units is
-// made easier by using the JG_MOCK and JG_MOCK_REF macros from jg::mock.
+// preferably done here too. Mocking such functions for usage in unit tests in different translation units
+// is made easier by using the JG_MOCK and JG_MOCK_REF macros from jg::mock.
 
-// Used to verify that noexcept functions fail (as per jg::verify) when they should.
-JG_MOCK(,,, void, test_assert, bool);
+// Used to verify that noexcept functions in jg "fail" (as per jg::verify) when they should.
+JG_MOCK(,,, void, mock_assert, bool);
+
+jg::test_suite test_optional();
+
+int main()
+{
+    return jg::test_run(
+    {
+        test_optional()
+    });
+}

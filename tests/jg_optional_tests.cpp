@@ -1,8 +1,8 @@
-#include "catch2/catch.hpp"
 #include <jg_optional.h>
 #include <jg_mock.h>
+#include <jg_test.h>
 
-JG_MOCK_REF(,,, void, test_assert, bool);
+JG_MOCK_REF(,,, void, mock_assert, bool);
 
 struct my_type final
 {
@@ -14,10 +14,10 @@ struct my_type final
 template <typename Op>
 void REQUIRE_ACCESSOR_ASSERT(Op op)
 {
-    test_assert_.reset(); \
+    mock_assert_.reset();
     op();
-    REQUIRE(test_assert_.called());
-    REQUIRE(test_assert_.param<1>() == false);
+    jg_test_assert(mock_assert_.called());
+    jg_test_assert(mock_assert_.param<1>() == false);
 }
 
 void REQUIRE_ACCESSORS_ASSERT(const jg::optional<my_type>& optional)
@@ -29,158 +29,129 @@ void REQUIRE_ACCESSORS_ASSERT(const jg::optional<my_type>& optional)
 
 void REQUIRE_ACCESSORS(const jg::optional<my_type>& optional, int i, bool b, const std::string& s)
 {
-    REQUIRE(optional->i == i);
-    REQUIRE(optional->b == b);
-    REQUIRE(optional->s == s);  
-    REQUIRE(optional.value().i == i);
-    REQUIRE(optional.value().b == b);
-    REQUIRE(optional.value().s == s);
-    REQUIRE((*optional).i == i);
-    REQUIRE((*optional).b == b);
-    REQUIRE((*optional).s == s);
+    jg_test_assert(optional->i == i);
+    jg_test_assert(optional->b == b);
+    jg_test_assert(optional->s == s);  
+    jg_test_assert(optional.value().i == i);
+    jg_test_assert(optional.value().b == b);
+    jg_test_assert(optional.value().s == s);
+    jg_test_assert((*optional).i == i);
+    jg_test_assert((*optional).b == b);
+    jg_test_assert((*optional).s == s);
 }
 
-TEST_CASE("jg_optional")
+jg::test_suite test_optional()
 {
-    SECTION("Overhead is one bool + alignment padding")
-    {
-        REQUIRE(sizeof(jg::optional<my_type>) - sizeof(my_type) - sizeof(bool) < sizeof(void*));
-    }
-
-    SECTION("Construction")
-    {
-        SECTION("Default constructed has no value")
-        {
+    return { "jg::optional", {
+        { "Overhead is one bool + alignment padding", [] {
+            jg_test_assert(sizeof(jg::optional<my_type>) - sizeof(my_type) - sizeof(bool) < sizeof(void*));
+        }},
+        // Construction
+        { "Default constructed has no value", [] {
             jg::optional<my_type> optional;
 
-            REQUIRE(!optional);
-            REQUIRE(!optional.has_value());
+            jg_test_assert(!optional);
+            jg_test_assert(!optional.has_value());
             REQUIRE_ACCESSORS_ASSERT(optional);
-        }
-
-        SECTION("Constructed with rvalue has value - alt 1")
-        {
+        }},
+        { "Constructed with rvalue has value - alt 1", [] {
             jg::optional<my_type> optional{my_type{4711, true, "foobar"}};
             
-            REQUIRE(optional);
-            REQUIRE(optional.has_value());
+            jg_test_assert(!!optional);
+            jg_test_assert(optional.has_value());
             REQUIRE_ACCESSORS(optional, 4711, true, "foobar");
-        }
-
-        SECTION("Constructed with rvalue has value - alt 2")
-        {
+        }},
+        { "Constructed with rvalue has value - alt 2", [] {
             my_type mt{4711, true, "foobar"};
             jg::optional<my_type> optional{std::move(mt)};
 
-            REQUIRE(optional);
-            REQUIRE(optional.has_value());
+            jg_test_assert(!!optional);
+            jg_test_assert(optional.has_value());
             REQUIRE_ACCESSORS(optional, 4711, true, "foobar");
-        }
-
-        SECTION("Constructed with lvalue has value")
-        {
+        }},
+        { "Constructed with lvalue has value", [] {
             const my_type mt{4711, true, "foobar"};
             jg::optional<my_type> optional{mt};
 
-            REQUIRE(optional);
-            REQUIRE(optional.has_value());
+            jg_test_assert(!!optional);
+            jg_test_assert(optional.has_value());
             REQUIRE_ACCESSORS(optional, 4711, true, "foobar");
-        }
-
-        SECTION("Constructed with rvalue optional has value - alt 1")
-        {
+        }},
+        { "Constructed with rvalue optional has value - alt 1", [] {
             jg::optional<my_type> optional{jg::optional<my_type>{my_type{4711, true, "foobar"}}};
             
-            REQUIRE(optional);
-            REQUIRE(optional.has_value());
+            jg_test_assert(!!optional);
+            jg_test_assert(optional.has_value());
             REQUIRE_ACCESSORS(optional, 4711, true, "foobar");
-        }
-
-        SECTION("Constructed with rvalue optional has value - alt 2")
-        {
+        }},
+        { "Constructed with rvalue optional has value - alt 2", [] {
             jg::optional<my_type> other{my_type{4711, true, "foobar"}};
             jg::optional<my_type> optional{std::move(other)};
 
-            REQUIRE(optional);
-            REQUIRE(optional.has_value());
+            jg_test_assert(!!optional);
+            jg_test_assert(optional.has_value());
             REQUIRE_ACCESSORS(optional, 4711, true, "foobar");
-        }
-
-        SECTION("Constructed with lvalue optional has value")
-        {
+        }},
+        { "Constructed with lvalue optional has value", [] {
             const jg::optional<my_type> other{my_type{4711, true, "foobar"}};
             jg::optional<my_type> optional{other};
 
-            REQUIRE(optional);
-            REQUIRE(optional.has_value());
+            jg_test_assert(!!optional);
+            jg_test_assert(optional.has_value());
             REQUIRE_ACCESSORS(optional, 4711, true, "foobar");
-        }
-    }
-
-    SECTION("Assignment")
-    {
-        SECTION("Assigned with rvalue optional has value - alt 1")
-        {
+        }},
+        // Assignment
+        { "Assigned with rvalue optional has value - alt 1", [] {
             jg::optional<my_type> optional{my_type{4712, false, "foo"}};
             optional = jg::optional<my_type>{my_type{4711, true, "foobar"}};
             
-            REQUIRE(optional);
-            REQUIRE(optional.has_value());
+            jg_test_assert(!!optional);
+            jg_test_assert(optional.has_value());
             REQUIRE_ACCESSORS(optional, 4711, true, "foobar");
-        }
-
-        SECTION("Assigned with rvalue optional has value - alt 2")
-        {
+        }},
+        { "Assigned with rvalue optional has value - alt 2", [] {
             jg::optional<my_type> other{my_type{4711, true, "foobar"}};
             jg::optional<my_type> optional{my_type{4712, false, "bar"}};
             optional = std::move(other);
 
-            REQUIRE(optional);
-            REQUIRE(optional.has_value());
+            jg_test_assert(!!optional);
+            jg_test_assert(optional.has_value());
             REQUIRE_ACCESSORS(optional, 4711, true, "foobar");
-        }
-
-        SECTION("Assigned with lvalue optional has value")
-        {
+        }},
+        { "Assigned with lvalue optional has value", [] {
             const jg::optional<my_type> other{my_type{4711, true, "foobar"}};
             jg::optional<my_type> optional{my_type{4712, false, "bar"}};
             optional = other;
 
-            REQUIRE(optional);
-            REQUIRE(optional.has_value());
+            jg_test_assert(!!optional);
+            jg_test_assert(optional.has_value());
             REQUIRE_ACCESSORS(optional, 4711, true, "foobar");
-        }
-
-        SECTION("Assigned with rvalue has value - alt 1")
-        {
+        }},
+        { "Assigned with rvalue has value - alt 1", [] {
             jg::optional<my_type> optional{my_type{4712, false, "bar"}};
             optional = my_type{4711, true, "foobar"};
             
-            REQUIRE(optional);
-            REQUIRE(optional.has_value());
+            jg_test_assert(!!optional);
+            jg_test_assert(optional.has_value());
             REQUIRE_ACCESSORS(optional, 4711, true, "foobar");
-        }
-
-        SECTION("Assigned with rvalue has value - alt 2")
-        {
+        }},
+        { "Assigned with rvalue has value - alt 2", [] {
             my_type mt{4711, true, "foobar"};
             jg::optional<my_type> optional{my_type{4712, false, "bar"}};
             optional = std::move(mt);
 
-            REQUIRE(optional);
-            REQUIRE(optional.has_value());
+            jg_test_assert(!!optional);
+            jg_test_assert(optional.has_value());
             REQUIRE_ACCESSORS(optional, 4711, true, "foobar");
-        }
-
-        SECTION("Assigned with lvalue has value")
-        {
+        }},
+        { "Assigned with lvalue has value", [] {
             const my_type mt{4711, true, "foobar"};
             jg::optional<my_type> optional{my_type{4712, false, "bar"}};
             optional = mt;
 
-            REQUIRE(optional);
-            REQUIRE(optional.has_value());
+            jg_test_assert(!!optional);
+            jg_test_assert(optional.has_value());
             REQUIRE_ACCESSORS(optional, 4711, true, "foobar");
-        }
-    }
+        }}
+    }};
 }
