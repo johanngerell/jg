@@ -2,23 +2,10 @@
 #include <vector>
 #include <jg_args.h>
 #include <jg_test.h>
+#include <jg_string.h>
 
 namespace test_helpers
 {
-
-template <typename FwdIt>
-std::string join(FwdIt first, FwdIt last, std::string_view delimiter)
-{
-    if (first == last)
-        return {};
-
-    std::string joined{*first};
-
-    while (++first != last)
-        joined.append(delimiter).append(*first);
-
-    return joined;
-}
 
 // Makes it easy to fake command line argc-argv pairs, jg::args, etc. in tests.
 class cmdline final
@@ -39,7 +26,7 @@ public:
     int             argc() const   { return m_argv.size() - 1; } // don't count last nullptr
     char**          argv() const   { return m_argv.data(); }
     const jg::args& args() const   { return m_args; }
-    std::string     joined() const { return join(m_strings.begin(), m_strings.end(), " "); }
+    std::string     joined() const { return jg::join(m_strings.begin(), m_strings.end(), " "); }
 
 private:
     std::vector<std::string> m_strings;

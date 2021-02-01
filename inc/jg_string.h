@@ -57,6 +57,20 @@ constexpr std::optional<std::array<std::string_view, NumTokens>> split(std::stri
     return tokens;
 }
 
+template <typename FwdIt>
+std::string join(FwdIt first, FwdIt last, std::string_view delimiter)
+{
+    if (first == last)
+        return {};
+
+    std::string joined{*first};
+
+    while (++first != last)
+        joined.append(delimiter).append(*first);
+
+    return joined;
+}
+
 template <typename T, typename U = T>
 constexpr std::optional<U> from_chars(std::string_view string)
 {
