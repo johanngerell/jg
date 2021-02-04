@@ -23,6 +23,7 @@ struct test_suite final
 };
 
 using test_suites = std::vector<test_suite>;
+using test_super_suites = std::vector<test_suites>;
 
 namespace detail
 {
@@ -85,12 +86,13 @@ inline void test_assert_impl(bool expr_value, const char* expr_string, const cha
 
 } // namespace detail
 
-inline int test_run(test_suites&& suites)
+inline int test_run(test_super_suites&& super_suites)
 {
     detail::test_metrics metrics{};
-    metrics.suite_count = suites.size();
 
+    for (auto& suites : super_suites)
     {
+        metrics.suite_count += suites.size();
         auto& state = detail::test_state::instance();
         state_scope_value test_metrics_scope(state.current_metrics, &metrics, nullptr);
 

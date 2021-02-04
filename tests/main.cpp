@@ -9,11 +9,12 @@
 // is made easier by using the JG_MOCK and JG_MOCK_REF macros from jg::mock.
 
 // Used to verify that noexcept functions in jg "fail" (as per jg::verify) when they should.
+// The specific name "mock_assert" is defined by JG_VERIFY_ASSERTION in CMakeLists.txt.
 JG_MOCK(,,, void, mock_assert, bool);
 
-jg::test_suite test_args();
-jg::test_suite test_optional();
-jg::test_suite test_string();
+jg::test_suites test_args();
+jg::test_suites test_optional();
+jg::test_suites test_string();
 
 int main()
 {
