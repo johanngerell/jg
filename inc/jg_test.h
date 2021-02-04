@@ -76,7 +76,7 @@ inline void test_assert_impl(bool expr_value, const char* expr_string, const cha
         return;
 
     if (state.current_suite &&
-        state.current_suite->test_fail_count++ == 0)
+        state.current_suite->test_fail_count == 0)
     {
         jg::ostream_color_scope(std::cout, jg::fg_red_bright()) << "  Failed test suite ";
         jg::ostream_color_scope(std::cout, jg::fg_cyan_bright()) << '\'' << state.current_suite->description << "'\n";
@@ -85,6 +85,9 @@ inline void test_assert_impl(bool expr_value, const char* expr_string, const cha
     if (state.current_case &&
         state.current_case->assertion_fail_count++ == 0)
     {
+        if (state.current_suite)
+            state.current_suite->test_fail_count++;
+
         jg::ostream_color_scope(std::cout, jg::fg_red_bright()) << "    Failed test case ";
         jg::ostream_color_scope(std::cout, jg::fg_cyan_bright()) << '\'' << state.current_case->description << "'\n";
     }
