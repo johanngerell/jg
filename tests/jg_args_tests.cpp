@@ -7,7 +7,7 @@ jg::test_suites test_args()
     using namespace test_helpers;
 
     return
-    jg::test_suites {
+    jg::test_suites { "args", {
         jg::test_suite { "test_helpers::cmdline", {
             jg::test_case { "default constructed => expected empty traits", [] {
                 cmdline empty{};
@@ -31,7 +31,7 @@ jg::test_suites test_args()
                 jg_test_assert(threeargs.joined() == "1 2 3");
             }}
         }},
-        jg::test_suite { "jg::args - iteration", {
+        jg::test_suite { "iteration", {
             jg::test_case { "default constructed => expected empty traits", [] {
                 cmdline empty{};
                 jg_test_assert(empty.argc() == 0);
@@ -70,7 +70,7 @@ jg::test_suites test_args()
                 jg_test_assert(std::distance(cmdline.args().begin(), cmdline.args().end()) == 5);
             }}
         }},
-        jg::test_suite { "jg::args_has_key", {
+        jg::test_suite { "args_has_key", {
             jg::test_case { "argc == 0 => key not found", [] {
                 jg_test_assert(!jg::args_has_key(cmdline{}.args(), ""));
                 jg_test_assert(!jg::args_has_key(cmdline{}.args(), "foo"));
@@ -98,7 +98,7 @@ jg::test_suites test_args()
                 jg_test_assert(!jg::args_has_key(cmdline{"--foo=1", "--bar=2", "--baz=3"}.args(), "--baz"));
             }}
         }},
-        jg::test_suite { "jg::args_key_value", {
+        jg::test_suite { "args_key_value", {
             jg::test_case { "argc == 0 => value not found", [] {
                 jg_test_assert(!jg::args_key_value(cmdline{}.args(), ""));
                 jg_test_assert(!jg::args_key_value(cmdline{}.args(), "foo"));
@@ -118,5 +118,5 @@ jg::test_suites test_args()
                 jg_test_assert(!jg::args_key_value(cmdline{"--foo=abc", "--bar=def", "--baz=ghi"}.args(), "--acme="));
             }}
         }}
-    };
+    }};
 }

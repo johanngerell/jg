@@ -19,10 +19,16 @@ struct test_case final
 struct test_suite final
 {
     std::string description;
-    std::vector<test_case> tests;
+    std::vector<test_case> items;
+    size_t test_fail_count{};
 };
 
-using test_suites = std::vector<test_suite>;
+struct test_suites final
+{
+    std::string description;
+    std::vector<test_suite> items;
+};
+
 using test_super_suites = std::vector<test_suites>;
 
 namespace detail
@@ -49,6 +55,7 @@ public:
     test_metrics* current_metrics{};
     test_case*    current_case{};
     test_suite*   current_suite{};
+    test_suites*  current_suites{};
 
 private:
     test_state() = default;
@@ -68,17 +75,24 @@ inline void test_assert_impl(bool expr_value, const char* expr_string, const cha
     if (expr_value)
         return;
 
+    if (state.current_suite &&
+        state.current_suite->test_fail_count++ == 0)
+    {
+        jg::ostream_color_scope(std::cout, jg::fg_red_bright()) << "  Failed test suite ";
+        jg::ostream_color_scope(std::cout, jg::fg_cyan_bright()) << '\'' << state.current_suite->description << "'\n";
+    }
+
     if (state.current_case &&
         state.current_case->assertion_fail_count++ == 0)
     {
-        jg::ostream_color_scope(std::cout, jg::fg_red_bright()) << "  Failed test case ";
+        jg::ostream_color_scope(std::cout, jg::fg_red_bright()) << "    Failed test case ";
         jg::ostream_color_scope(std::cout, jg::fg_cyan_bright()) << '\'' << state.current_case->description << "'\n";
     }
 
     if (state.current_metrics)
         state.current_metrics->assertion_fail_count++;
 
-    jg::ostream_color_scope(std::cout, jg::fg_red_bright()) << "    Failed test assertion ";
+    jg::ostream_color_scope(std::cout, jg::fg_red_bright()) << "      Failed test assertion ";
     jg::ostream_color_scope(std::cout, jg::fg_cyan_bright()) << '\'' << expr_string << '\'';
     std::cout << " at ";
     jg::ostream_color_scope(std::cout, jg::fg_magenta_bright()) << file << ':' << line << '\n';
@@ -92,19 +106,21 @@ inline int test_run(test_super_suites&& super_suites)
 
     for (auto& suites : super_suites)
     {
-        metrics.suite_count += suites.size();
+        std::cout << "Running test super suite ";
+        jg::ostream_color_scope(std::cout, jg::fg_cyan_bright()) << '\'' << suites.description << "'\n";
+        metrics.suite_count += suites.items.size();
+
         auto& state = detail::test_state::instance();
         state_scope_value test_metrics_scope(state.current_metrics, &metrics, nullptr);
+        state_scope_value test_suites_scope(state.current_suites, &suites, nullptr);
 
-        for (auto& suite : suites)
+        for (auto& suite : suites.items)
         {
-            std::cout << "Running test suite ";
-            jg::ostream_color_scope(std::cout, jg::fg_cyan_bright()) << '\'' << suite.description << "'\n";
-            metrics.case_count += suite.tests.size();
+            metrics.case_count += suite.items.size();
 
             state_scope_value test_suite_scope(state.current_suite, &suite, nullptr);
 
-            for (auto& test : suite.tests)
+            for (auto& test : suite.items)
             {
                 state_scope_value test_case_scope(state.current_case, &test, nullptr);
                 test.func();

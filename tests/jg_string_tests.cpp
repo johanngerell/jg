@@ -4,8 +4,8 @@
 jg::test_suites test_string()
 {
     return
-    jg::test_suites {
-        jg::test_suite { "jg - string split positive", {
+    jg::test_suites { "string", {
+        jg::test_suite { "split / positive", {
             jg::test_case { "One expected token - empty string is an empty but valid token", [] {
                 const auto tokens = jg::split<1>("", ',');
                 jg_test_assert(tokens.has_value());
@@ -62,7 +62,7 @@ jg::test_suites test_string()
                 jg_test_assert((*tokens)[2] == "");
             }}
         }},
-        jg::test_suite { "jg - string split negative", {
+        jg::test_suite { "split / negative", {
             jg::test_case { "One expected token - string with only a delimiter can't be split", [] {
                 const auto tokens = jg::split<1>(",", ',');
                 jg_test_assert(!tokens.has_value());
@@ -96,5 +96,5 @@ jg::test_suites test_string()
                 jg_test_assert(!tokens.has_value());
             }}
         }}
-    };
+    }};
 }
