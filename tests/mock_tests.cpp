@@ -1,6 +1,8 @@
 #include <jg_mock.h>
 #include <jg_test.h>
 
+using namespace std::string_literals;
+
 bool test_free_function(char, bool, int, const char*);
 JG_MOCK_REF(,,, bool, test_free_function, char, bool, int, const char*);
 
@@ -29,6 +31,7 @@ bool using_test_abstract_class(test_abstract_class& t, char c, bool b, int i, co
 jg::test_suites test_mock()
 {
     // TODO: Add "reset() clears the state" for both free function and virtual function mocks.
+    // TODO: Split cases into smaller ones.
     return 
     jg::test_suites { "mock", {
         jg::test_suite { "free functions", {
@@ -36,13 +39,19 @@ jg::test_suites test_mock()
                 test_free_function_.reset(); // only needed for free function mocks
                 test_free_function_.result = true;
 
+                jg_test_assert(test_free_function_.param<1>() == 0);
+                jg_test_assert(test_free_function_.param<2>() == false);
+                jg_test_assert(test_free_function_.param<3>() == 0);
+                jg_test_assert(test_free_function_.param<4>() == nullptr);
+                jg_test_assert(!test_free_function_.called());
+                jg_test_assert(test_free_function_.count() == 0);
                 jg_test_assert(using_mock_test_free_function('a', true, 4711, "foobar1"));
                 jg_test_assert(using_mock_test_free_function('b', true, 4712, "foobar2"));
                 jg_test_assert(using_mock_test_free_function('c', true, 4713, "foobar3"));
                 jg_test_assert(test_free_function_.param<1>() == 'c');
                 jg_test_assert(test_free_function_.param<2>() == true);
                 jg_test_assert(test_free_function_.param<3>() == 4713);
-                jg_test_assert(test_free_function_.param<4>() == std::string_view{"foobar3"});
+                jg_test_assert(test_free_function_.param<4>() == "foobar3"s);
                 jg_test_assert(test_free_function_.called());
                 jg_test_assert(test_free_function_.count() == 3);
                 jg_test_assert(test_free_function_.prototype() == "bool test_free_function(char, bool, int, const char*)");
@@ -51,13 +60,19 @@ jg::test_suites test_mock()
                 test_free_function_.reset(); // only needed for free function mocks
                 test_free_function_.func = [] (char, bool, int, const char*) { return true; };
 
+                jg_test_assert(test_free_function_.param<1>() == 0);
+                jg_test_assert(test_free_function_.param<2>() == false);
+                jg_test_assert(test_free_function_.param<3>() == 0);
+                jg_test_assert(test_free_function_.param<4>() == nullptr);
+                jg_test_assert(!test_free_function_.called());
+                jg_test_assert(test_free_function_.count() == 0);
                 jg_test_assert(using_mock_test_free_function('a', true, 4711, "foobar1"));
                 jg_test_assert(using_mock_test_free_function('b', true, 4712, "foobar2"));
                 jg_test_assert(using_mock_test_free_function('c', true, 4713, "foobar3"));
                 jg_test_assert(test_free_function_.param<1>() == 'c');
                 jg_test_assert(test_free_function_.param<2>() == true);
                 jg_test_assert(test_free_function_.param<3>() == 4713);
-                jg_test_assert(test_free_function_.param<4>() == std::string_view{"foobar3"});
+                jg_test_assert(test_free_function_.param<4>() == "foobar3"s);
                 jg_test_assert(test_free_function_.called());
                 jg_test_assert(test_free_function_.count() == 3);
                 jg_test_assert(test_free_function_.prototype() == "bool test_free_function(char, bool, int, const char*)");
@@ -68,13 +83,19 @@ jg::test_suites test_mock()
                 mock_test_abstract_class mock;
                 mock.function1_.result = true;
 
+                jg_test_assert(mock.function1_.param<1>() == 0);
+                jg_test_assert(mock.function1_.param<2>() == false);
+                jg_test_assert(mock.function1_.param<3>() == 0);
+                jg_test_assert(mock.function1_.param<4>() == nullptr);
+                jg_test_assert(!mock.function1_.called());
+                jg_test_assert(mock.function1_.count() == 0);
                 jg_test_assert(using_test_abstract_class(mock, 'a', true, 4711, "foobar1"));
                 jg_test_assert(using_test_abstract_class(mock, 'b', true, 4712, "foobar2"));
                 jg_test_assert(using_test_abstract_class(mock, 'c', true, 4713, "foobar3"));
                 jg_test_assert(mock.function1_.param<1>() == 'c');
                 jg_test_assert(mock.function1_.param<2>() == true);
                 jg_test_assert(mock.function1_.param<3>() == 4713);
-                jg_test_assert(mock.function1_.param<4>() == std::string_view{"foobar3"});
+                jg_test_assert(mock.function1_.param<4>() == "foobar3"s);
                 jg_test_assert(mock.function1_.called());
                 jg_test_assert(mock.function1_.count() == 3);
                 jg_test_assert(mock.function1_.prototype() == "bool function1(char, bool, int, const char*)");
@@ -83,13 +104,19 @@ jg::test_suites test_mock()
                 mock_test_abstract_class mock;
                 mock.function1_.func = [] (char, bool, int, const char*) { return true; };
 
+                jg_test_assert(mock.function1_.param<1>() == 0);
+                jg_test_assert(mock.function1_.param<2>() == false);
+                jg_test_assert(mock.function1_.param<3>() == 0);
+                jg_test_assert(mock.function1_.param<4>() == nullptr);
+                jg_test_assert(!mock.function1_.called());
+                jg_test_assert(mock.function1_.count() == 0);
                 jg_test_assert(using_test_abstract_class(mock, 'a', true, 4711, "foobar1"));
                 jg_test_assert(using_test_abstract_class(mock, 'b', true, 4712, "foobar2"));
                 jg_test_assert(using_test_abstract_class(mock, 'c', true, 4713, "foobar3"));
                 jg_test_assert(mock.function1_.param<1>() == 'c');
                 jg_test_assert(mock.function1_.param<2>() == true);
                 jg_test_assert(mock.function1_.param<3>() == 4713);
-                jg_test_assert(mock.function1_.param<4>() == std::string_view{"foobar3"});
+                jg_test_assert(mock.function1_.param<4>() == "foobar3"s);
                 jg_test_assert(mock.function1_.called());
                 jg_test_assert(mock.function1_.count() == 3);
                 jg_test_assert(mock.function1_.prototype() == "bool function1(char, bool, int, const char*)");
