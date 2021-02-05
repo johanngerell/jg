@@ -9,10 +9,14 @@
 // preferably done here too. Mocking such functions for usage in unit tests in different translation units
 // is made easier by using the JG_MOCK and JG_MOCK_REF macros from jg::mock.
 
-// Used to verify that noexcept functions in jg "fail" (as per jg::verify) when they should.
-// The specific name "mock_assert" is defined by JG_VERIFY_ASSERTION in CMakeLists.txt.
+// For verifying that noexcept functions in jg "fail" (as per jg::verify) when they should.
+// The specific name `mock_assert` is defined by JG_VERIFY_ASSERTION in CMakeLists.txt.
 JG_MOCK(,,, void, mock_assert, bool);
 
+// For testing mocking free functions work. The corresponding JG_MOCK_REF is in mock_tests.cpp.
+JG_MOCK(,,, bool, test_free_function, char, bool, int, const char*);
+
+jg::test_suites test_mock();
 jg::test_suites test_args();
 jg::test_suites test_optional();
 jg::test_suites test_string();
@@ -21,6 +25,7 @@ int main()
 {
     return jg::test_run(
     {
+        test_mock(),
         test_args(),
         test_optional(),
         test_string()
