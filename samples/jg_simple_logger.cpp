@@ -43,7 +43,6 @@ int main()
     });
 
     {
-    
         const auto t2 = jg::benchmark(10, [&]
         {
             for (size_t i = 0; i < 10; ++i)
