@@ -10,7 +10,7 @@
 /// @note One translation unit *must* define JG_TEST_IMPL before including this header. This is typically
 /// done by the main cpp file. The translation unit that defines JG_TEST_IMPL is the one where the test
 /// implementation will be defined and compiled. If no translation unit defines JG_TEST_IMPL, then there
-/// will be undefined symbol linker errors.
+/// will be undefined symbol linker errors as tests refer to the undefined functions.
 /// @note By defining JG_TEST_ENABLE_SHORT_NAME before including this header, the shorter macro name
 /// `jg_assert` can be used instead of `jg_test_assert`.
 
