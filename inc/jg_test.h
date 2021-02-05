@@ -6,6 +6,14 @@
 #include "jg_state_scope.h"
 #include "jg_ostream_color_scope.h"
 
+/// @file Testing facilities, like test assertions, test cases, test suites, test runner, etc.
+/// @note One translation unit *must* define JG_TEST_IMPL before including this header. This is typically
+/// done by the main cpp file. The translation unit that defines JG_TEST_IMPL is the one where the test
+/// implementation will be defined and compiled. If no translation unit defines JG_TEST_IMPL, then there
+/// will be undefined symbol linker errors.
+/// @note By defining JG_TEST_ENABLE_SHORT_NAME before including this header, the shorter macro name
+/// `jg_assert` can be used instead of `jg_test_assert`.
+
 namespace jg
 {
 
@@ -20,7 +28,7 @@ struct test_suite final
 {
     std::string description;
     std::vector<test_case> items;
-    size_t test_fail_count{};
+    size_t case_fail_count{};
 };
 
 struct test_suites final
@@ -30,6 +38,8 @@ struct test_suites final
 };
 
 using test_super_suites = std::vector<test_suites>;
+
+int test_run(test_super_suites&& super_suites);
 
 namespace detail
 {
@@ -43,59 +53,69 @@ struct test_metrics final
     size_t assertion_fail_count{};
 };
 
-class test_state final
+struct test_state final
 {
-public:
-    static test_state& instance()
-    {
-        static test_state state;
-        return state;
-    }
-
-    test_metrics* current_metrics{};
-    test_case*    current_case{};
-    test_suite*   current_suite{};
-    test_suites*  current_suites{};
-
-private:
-    test_state() = default;
+    test_metrics metrics{};
+    test_case*   current_case{};
+    test_suite*  current_suite{};
+    test_suites* current_suites{};
 };
 
-inline void test_assert_impl(bool expr_value, const char* expr_string, const char* file, int line)
+void test_assert_impl(bool expr_value, const char* expr_string, const char* file, int line);
+
+} // namespace detail
+} // namespace jg
+
+/// This macro can be used both on its own in simple test files (like `main.cpp` with a bunch of assertions)
+/// and in test cases inside suites inside super suites run by `test_run()`. It will not exit the test
+/// program, only output error information and propagate metrics back to `test_run()` (when it's used).
+#define jg_test_assert(expr) jg::detail::test_assert_impl((expr), #expr, __FILE__,  __LINE__) 
+
+#ifdef JG_TEST_ENABLE_SHORT_NAME
+    #define jg_assert jg_test_assert
+#endif
+
+#ifdef JG_TEST_IMPL
+
+namespace jg
 {
-    // Allowing the current test_state to be unset makes it possible to use the jg_test_assert
-    // macro outside of test suites, which is useful for quick main()-only tests
-    // that might grow to more complete suites.
+namespace detail
+{
 
-    auto& state = detail::test_state::instance();
+static test_state* current_state{};
 
-    if (state.current_metrics)
-        state.current_metrics->assertion_count++;
+void test_assert_impl(bool expr_value, const char* expr_string, const char* file, int line)
+{
+    // Allowing the current test_state to be unset makes it possible to use the jg_test_assert macro
+    // outside of test cases and suites, which is useful for quick main()-only tests that doesn't call
+    // test_run, but that might grow to more complete suites.
+
+    if (current_state)
+        current_state->metrics.assertion_count++;
     
     if (expr_value)
         return;
 
-    if (state.current_suite &&
-        state.current_suite->test_fail_count == 0)
+    if (current_state)
     {
-        jg::ostream_color_scope(std::cout, jg::fg_red_bright()) << "  Failed test suite ";
-        jg::ostream_color_scope(std::cout, jg::fg_cyan_bright()) << '\'' << state.current_suite->description << "'\n";
+        if (current_state->current_suite->case_fail_count == 0)
+        {
+            jg::ostream_color_scope(std::cout, jg::fg_red_bright()) << "  Failed test suite ";
+            jg::ostream_color_scope(std::cout, jg::fg_cyan_bright()) << '\'' << current_state->current_suite->description << "'\n";
+        }
+
+        if (current_state->current_case->assertion_fail_count == 0)
+        {
+            current_state->current_suite->case_fail_count++;
+            jg::ostream_color_scope(std::cout, jg::fg_red_bright()) << "    Failed test case ";
+            jg::ostream_color_scope(std::cout, jg::fg_cyan_bright()) << '\'' << current_state->current_case->description << "'\n";
+        }
+
+        current_state->current_case->assertion_fail_count++;
+        current_state->metrics.assertion_fail_count++;
     }
 
-    if (state.current_case &&
-        state.current_case->assertion_fail_count++ == 0)
-    {
-        if (state.current_suite)
-            state.current_suite->test_fail_count++;
-
-        jg::ostream_color_scope(std::cout, jg::fg_red_bright()) << "    Failed test case ";
-        jg::ostream_color_scope(std::cout, jg::fg_cyan_bright()) << '\'' << state.current_case->description << "'\n";
-    }
-
-    if (state.current_metrics)
-        state.current_metrics->assertion_fail_count++;
-
-    jg::ostream_color_scope(std::cout, jg::fg_red_bright()) << "      Failed test assertion ";
+    jg::ostream_color_scope(std::cout, jg::fg_red_bright()) << (current_state ? "      " : "") << "Failed test assertion ";
     jg::ostream_color_scope(std::cout, jg::fg_cyan_bright()) << '\'' << expr_string << '\'';
     std::cout << " at ";
     jg::ostream_color_scope(std::cout, jg::fg_magenta_bright()) << file << ':' << line << '\n';
@@ -103,24 +123,22 @@ inline void test_assert_impl(bool expr_value, const char* expr_string, const cha
 
 } // namespace detail
 
-inline int test_run(test_super_suites&& super_suites)
+int test_run(test_super_suites&& super_suites)
 {
-    detail::test_metrics metrics{};
+    detail::test_state state{};
+    detail::current_state = &state;
 
     for (auto& suites : super_suites)
     {
         std::cout << "Running test super suite ";
         jg::ostream_color_scope(std::cout, jg::fg_cyan_bright()) << '\'' << suites.description << "'\n";
-        metrics.suite_count += suites.items.size();
 
-        auto& state = detail::test_state::instance();
-        state_scope_value test_metrics_scope(state.current_metrics, &metrics, nullptr);
+        state.metrics.suite_count += suites.items.size();
         state_scope_value test_suites_scope(state.current_suites, &suites, nullptr);
 
         for (auto& suite : suites.items)
         {
-            metrics.case_count += suite.items.size();
-
+            state.metrics.case_count += suite.items.size();
             state_scope_value test_suite_scope(state.current_suite, &suite, nullptr);
 
             for (auto& test : suite.items)
@@ -129,32 +147,29 @@ inline int test_run(test_super_suites&& super_suites)
                 test.func();
 
                 if (test.assertion_fail_count > 0)
-                    metrics.case_fail_count++;
+                    state.metrics.case_fail_count++;
             }
         }
     }
 
-    if (metrics.case_count == 0)
+    if (state.metrics.case_count == 0)
         jg::ostream_color_scope(std::cout, jg::fg_yellow_bright()) << "No test cases\n";
     else
     {
-        if (metrics.assertion_fail_count > 0)
+        if (state.metrics.assertion_fail_count > 0)
             ; // suite and case failures are handled in test_assert_impl
         else
             jg::ostream_color_scope(std::cout, jg::fg_green_bright()) << "All tests succeeded\n";
 
-        std::cout << metrics.assertion_count  << (metrics.assertion_count == 1 ? " test assertion" : " test assertions") << '\n'
-                  << metrics.case_count       << (metrics.case_count == 1 ? " test case" : " test cases") << '\n'
-                  << metrics.suite_count      << (metrics.suite_count == 1 ? " test suite" : " test suites") << '\n';
+        std::cout << state.metrics.assertion_count  << (state.metrics.assertion_count == 1 ? " test assertion" : " test assertions") << '\n'
+                  << state.metrics.case_count       << (state.metrics.case_count == 1 ? " test case" : " test cases") << '\n'
+                  << state.metrics.suite_count      << (state.metrics.suite_count == 1 ? " test suite" : " test suites") << '\n';
     }
 
-    return static_cast<int>(metrics.assertion_fail_count);
+    return static_cast<int>(state.metrics.assertion_fail_count);
 }
 
 } // namespace jg
 
-#define jg_test_assert(expr) jg::detail::test_assert_impl((expr), #expr, __FILE__,  __LINE__) 
-
-#ifdef JG_TEST_ENABLE_SHORT_NAME
-    #define test_assert jg_test_assert
+#undef JG_TEST_IMPL
 #endif

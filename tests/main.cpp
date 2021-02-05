@@ -1,4 +1,5 @@
 #include <jg_mock.h>
+#define JG_TEST_IMPL
 #include <jg_test.h>
 
 // There should be NO tests in this file. We only want to compile this file ONCE. It'll reduce the total
