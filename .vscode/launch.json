@@ -5,6 +5,17 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "(Mac) jg_test - debug",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/mac/debug/jg_tests",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "MIMode": "lldb"
+        },
+        {
             "name": "(Mac) jg_args.cpp - debug",
             "type": "cppdbg",
             "request": "launch",

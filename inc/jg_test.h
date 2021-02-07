@@ -56,15 +56,36 @@ public:
 namespace detail
 {
 
-void test_assert_impl(bool expr_value, const char* expr_string, const char* file, int line);
+void test_assert_prolog();
+void test_assert_epilog(const char* expr_string, const char* file, int line);
+
+inline void test_assert_impl(bool expr_value, const char* expr_string, const char* file, int line)
+{
+    jg::detail::test_assert_prolog();
+    if (expr_value) return;
+    jg::detail::test_assert_epilog(expr_string, file, line);
+}
+
+template <typename TException, typename TExprFunc>
+void test_assert_exception_impl(TExprFunc&& expr_func, const char* expr_string, const char* file, int line)
+{
+    jg::detail::test_assert_prolog();
+    try { expr_func(); }
+    catch(const TException&) { return; }
+    catch(...) {}
+    jg::detail::test_assert_epilog(expr_string, file, line);
+}
 
 } // namespace detail
 } // namespace jg
 
-/// This macro can be used both on its own in simple test files (like `main.cpp` with a bunch of assertions)
-/// and in test cases inside suites run by `test_run()`. It will not exit the test program, only output
-/// error information and propagate metrics back to `test_run()`, when that's used.
-#define jg_test_assert(expr) jg::detail::test_assert_impl((expr), #expr, __FILE__,  __LINE__) 
+/// These macros can be used both on their own in simple test files (like `main.cpp` with a bunch of
+/// assertions) and in test cases inside suites run by `test_run()`. They will not exit the test program,
+/// only output error information and propagate metrics back to `test_run()`, if that's used.
+#define jg_test_assert(expr) \
+    jg::detail::test_assert_impl((expr), #expr, __FILE__,  __LINE__)
+#define jg_test_assert_exception(expr, exception_type) \
+    jg::detail::test_assert_exception_impl<exception_type>([&] { (expr); }, #expr, __FILE__,  __LINE__)
 
 #ifdef JG_TEST_ENABLE_SHORT_NAME
     #define jg_assert jg_test_assert
@@ -102,20 +123,19 @@ struct test_state final
     test_suites* current_suites{};
 };
 
+// Allowing the current test_state to be unset makes it possible to use the jg_test_assert macro
+// outside of test cases and suites, which is useful for quick main()-only tests that doesn't call
+// test_run, but that might grow to more complete suites.
 static test_state* current_state{};
 
-void test_assert_impl(bool expr_value, const char* expr_string, const char* file, int line)
+void test_assert_prolog()
 {
-    // Allowing the current test_state to be unset makes it possible to use the jg_test_assert macro
-    // outside of test cases and suites, which is useful for quick main()-only tests that doesn't call
-    // test_run, but that might grow to more complete suites.
-
     if (current_state)
         current_state->metrics.assertion_count++;
-    
-    if (expr_value)
-        return;
+}
 
+void test_assert_epilog(const char* expr_string, const char* file, int line)
+{
     if (current_state)
     {
         if (current_state->current_suite->case_fail_count == 0)
