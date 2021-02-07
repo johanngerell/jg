@@ -71,14 +71,14 @@ std::string join(FwdIt first, FwdIt last, std::string_view delimiter)
     return joined;
 }
 
-template <typename T, typename U = T>
-constexpr std::optional<U> from_chars(std::string_view string)
+template <typename TConv, typename TRet = TConv>
+constexpr std::optional<TRet> from_chars(std::string_view string)
 {
-    T value{};
+    TConv value{};
     auto [_, result] = std::from_chars(string.data(), string.data() + string.size(), value);
 
     if (result == std::errc())
-        return static_cast<U>(value);
+        return static_cast<TRet>(value);
 
     return std::nullopt;
 }
