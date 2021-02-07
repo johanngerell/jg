@@ -37,9 +37,50 @@ struct test_suites final
     std::vector<test_suite> items;
 };
 
-using test_super_suites = std::vector<test_suites>;
+void test_add(jg::test_suites&& suites);
+int test_run();
 
-int test_run(test_super_suites&& super_suites);
+template <typename TSuitesImpl>
+class test_suites_base
+{
+public:
+    test_suites_base()
+    {
+        test_add((*static_cast<TSuitesImpl*>(this))());
+    }
+
+    test_suites_base(const test_suites_base&) = delete;
+    test_suites_base& operator=(const test_suites_base&) = delete;
+};
+
+namespace detail
+{
+
+void test_assert_impl(bool expr_value, const char* expr_string, const char* file, int line);
+
+} // namespace detail
+} // namespace jg
+
+/// This macro can be used both on its own in simple test files (like `main.cpp` with a bunch of assertions)
+/// and in test cases inside suites run by `test_run()`. It will not exit the test program, only output
+/// error information and propagate metrics back to `test_run()`, when that's used.
+#define jg_test_assert(expr) jg::detail::test_assert_impl((expr), #expr, __FILE__,  __LINE__) 
+
+#ifdef JG_TEST_ENABLE_SHORT_NAME
+    #define jg_assert jg_test_assert
+#endif
+
+#ifdef JG_TEST_IMPL
+
+namespace jg
+{
+
+static std::vector<test_suites> super_suites;
+
+void test_add(jg::test_suites&& suites)
+{
+    super_suites.push_back(std::move(suites));
+}
 
 namespace detail
 {
@@ -60,27 +101,6 @@ struct test_state final
     test_suite*  current_suite{};
     test_suites* current_suites{};
 };
-
-void test_assert_impl(bool expr_value, const char* expr_string, const char* file, int line);
-
-} // namespace detail
-} // namespace jg
-
-/// This macro can be used both on its own in simple test files (like `main.cpp` with a bunch of assertions)
-/// and in test cases inside suites inside super suites run by `test_run()`. It will not exit the test
-/// program, only output error information and propagate metrics back to `test_run()` (when it's used).
-#define jg_test_assert(expr) jg::detail::test_assert_impl((expr), #expr, __FILE__,  __LINE__) 
-
-#ifdef JG_TEST_ENABLE_SHORT_NAME
-    #define jg_assert jg_test_assert
-#endif
-
-#ifdef JG_TEST_IMPL
-
-namespace jg
-{
-namespace detail
-{
 
 static test_state* current_state{};
 
@@ -123,7 +143,7 @@ void test_assert_impl(bool expr_value, const char* expr_string, const char* file
 
 } // namespace detail
 
-int test_run(test_super_suites&& super_suites)
+int test_run()
 {
     detail::test_state state{};
     detail::current_state = &state;
@@ -172,4 +192,11 @@ int test_run(test_super_suites&& super_suites)
 } // namespace jg
 
 #undef JG_TEST_IMPL
+#endif
+
+#ifdef JG_TEST_MAIN
+int main()
+{
+    return jg::test_run();
+}
 #endif

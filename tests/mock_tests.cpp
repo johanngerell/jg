@@ -1,10 +1,14 @@
 #include <jg_mock.h>
 #include <jg_test.h>
 
-using namespace std::string_literals;
-
 bool test_free_function(char, bool, int, const char*);
 JG_MOCK_REF(,,, bool, test_free_function, char, bool, int, const char*);
+
+// For checking if the auxiliary result is properly verified when used without being set.
+JG_MOCK_REF(,,, void, mock_assert, bool);
+
+namespace
+{
 
 bool using_mock_test_free_function(char c, bool b, int i, const char* s)
 {
@@ -28,150 +32,154 @@ bool using_test_abstract_class(test_abstract_class& t, char c, bool b, int i, co
     return t.function1(c, b, i, s);
 }
 
-// For checking if the auxiliary result is properly verified when used without being set.
-JG_MOCK_REF(,,, void, mock_assert, bool);
-
-jg::test_suites test_mock()
+struct mock_tests final : jg::test_suites_base<mock_tests>
 {
-    return 
-    jg::test_suites { "mock", {
-        jg::test_suite { "free functions", {
-            jg::test_case { "non-void called without setting result causes assertion", [] {
-                mock_assert_.reset(); // only needed for free function mocks
-                test_free_function_.reset(); // only needed for free function mocks
 
-                using_mock_test_free_function('a', true, 4711, "foobar1");
+    auto operator()()
+    {
+        using namespace std::string_literals;
 
-                jg_test_assert(test_free_function_.called());
-                jg_test_assert(mock_assert_.called());
-                jg_test_assert(mock_assert_.param<1>() == false);
+        return jg::test_suites { "mock", {
+            jg::test_suite { "free functions", {
+                jg::test_case { "non-void called without setting result causes assertion", [] {
+                    mock_assert_.reset(); // only needed for free function mocks
+                    test_free_function_.reset(); // only needed for free function mocks
+
+                    using_mock_test_free_function('a', true, 4711, "foobar1");
+
+                    jg_test_assert(test_free_function_.called());
+                    jg_test_assert(mock_assert_.called());
+                    jg_test_assert(mock_assert_.param<1>() == false);
+                }},
+                jg::test_case { "state is empty before call", [] {
+                    test_free_function_.reset(); // only needed for free function mocks
+
+                    jg_test_assert(!test_free_function_.called());
+                    jg_test_assert(test_free_function_.count() == 0);
+                    jg_test_assert(test_free_function_.param<1>() == 0);
+                    jg_test_assert(test_free_function_.param<2>() == false);
+                    jg_test_assert(test_free_function_.param<3>() == 0);
+                    jg_test_assert(test_free_function_.param<4>() == nullptr);
+                    jg_test_assert(test_free_function_.result == false);
+                    jg_test_assert(test_free_function_.func == nullptr);
+                }},
+                jg::test_case { "reset clears state after call", [] {
+                    test_free_function_.reset(); // only needed for free function mocks
+                    test_free_function_.result = true;
+
+                    jg_test_assert(using_mock_test_free_function('a', true, 4711, "foobar1"));
+                    test_free_function_.reset();
+                    jg_test_assert(!test_free_function_.called());
+                    jg_test_assert(test_free_function_.count() == 0);
+                    jg_test_assert(test_free_function_.param<1>() == 0);
+                    jg_test_assert(test_free_function_.param<2>() == false);
+                    jg_test_assert(test_free_function_.param<3>() == 0);
+                    jg_test_assert(test_free_function_.param<4>() == nullptr);
+                    jg_test_assert(test_free_function_.result == false);
+                    jg_test_assert(test_free_function_.func == nullptr);
+                }},
+                jg::test_case { "with result", [] {
+                    test_free_function_.reset(); // only needed for free function mocks
+                    test_free_function_.result = true;
+
+                    jg_test_assert(using_mock_test_free_function('a', true, 4711, "foobar1"));
+                    jg_test_assert(using_mock_test_free_function('b', true, 4712, "foobar2"));
+                    jg_test_assert(using_mock_test_free_function('c', true, 4713, "foobar3"));
+                    jg_test_assert(test_free_function_.param<1>() == 'c');
+                    jg_test_assert(test_free_function_.param<2>() == true);
+                    jg_test_assert(test_free_function_.param<3>() == 4713);
+                    jg_test_assert(test_free_function_.param<4>() == "foobar3"s);
+                    jg_test_assert(test_free_function_.called());
+                    jg_test_assert(test_free_function_.count() == 3);
+                    jg_test_assert(test_free_function_.prototype() == "bool test_free_function(char, bool, int, const char*)");
+                }},
+                jg::test_case { "with func", [] {
+                    test_free_function_.reset(); // only needed for free function mocks
+                    test_free_function_.func = [] (char, bool, int, const char*) { return true; };
+
+                    jg_test_assert(using_mock_test_free_function('a', true, 4711, "foobar1"));
+                    jg_test_assert(using_mock_test_free_function('b', true, 4712, "foobar2"));
+                    jg_test_assert(using_mock_test_free_function('c', true, 4713, "foobar3"));
+                    jg_test_assert(test_free_function_.param<1>() == 'c');
+                    jg_test_assert(test_free_function_.param<2>() == true);
+                    jg_test_assert(test_free_function_.param<3>() == 4713);
+                    jg_test_assert(test_free_function_.param<4>() == "foobar3"s);
+                    jg_test_assert(test_free_function_.called());
+                    jg_test_assert(test_free_function_.count() == 3);
+                    jg_test_assert(test_free_function_.prototype() == "bool test_free_function(char, bool, int, const char*)");
+                }}
             }},
-            jg::test_case { "state is empty before call", [] {
-                test_free_function_.reset(); // only needed for free function mocks
+            jg::test_suite { "virtual functions", {
+                jg::test_case { "non-void called without setting result causes assertion", [] {
+                    mock_assert_.reset(); // only needed for free function mocks
+                    mock_test_abstract_class mock;
 
-                jg_test_assert(!test_free_function_.called());
-                jg_test_assert(test_free_function_.count() == 0);
-                jg_test_assert(test_free_function_.param<1>() == 0);
-                jg_test_assert(test_free_function_.param<2>() == false);
-                jg_test_assert(test_free_function_.param<3>() == 0);
-                jg_test_assert(test_free_function_.param<4>() == nullptr);
-                jg_test_assert(test_free_function_.result == false);
-                jg_test_assert(test_free_function_.func == nullptr);
-            }},
-            jg::test_case { "reset clears state after call", [] {
-                test_free_function_.reset(); // only needed for free function mocks
-                test_free_function_.result = true;
+                    using_test_abstract_class(mock, 'a', true, 4711, "foobar1");
 
-                jg_test_assert(using_mock_test_free_function('a', true, 4711, "foobar1"));
-                test_free_function_.reset();
-                jg_test_assert(!test_free_function_.called());
-                jg_test_assert(test_free_function_.count() == 0);
-                jg_test_assert(test_free_function_.param<1>() == 0);
-                jg_test_assert(test_free_function_.param<2>() == false);
-                jg_test_assert(test_free_function_.param<3>() == 0);
-                jg_test_assert(test_free_function_.param<4>() == nullptr);
-                jg_test_assert(test_free_function_.result == false);
-                jg_test_assert(test_free_function_.func == nullptr);
-            }},
-            jg::test_case { "with result", [] {
-                test_free_function_.reset(); // only needed for free function mocks
-                test_free_function_.result = true;
+                    jg_test_assert(mock.function1_.called());
+                    jg_test_assert(mock_assert_.called());
+                    jg_test_assert(mock_assert_.param<1>() == false);
+                }},
+                jg::test_case { "state is empty before call", [] {
+                    mock_test_abstract_class mock;
 
-                jg_test_assert(using_mock_test_free_function('a', true, 4711, "foobar1"));
-                jg_test_assert(using_mock_test_free_function('b', true, 4712, "foobar2"));
-                jg_test_assert(using_mock_test_free_function('c', true, 4713, "foobar3"));
-                jg_test_assert(test_free_function_.param<1>() == 'c');
-                jg_test_assert(test_free_function_.param<2>() == true);
-                jg_test_assert(test_free_function_.param<3>() == 4713);
-                jg_test_assert(test_free_function_.param<4>() == "foobar3"s);
-                jg_test_assert(test_free_function_.called());
-                jg_test_assert(test_free_function_.count() == 3);
-                jg_test_assert(test_free_function_.prototype() == "bool test_free_function(char, bool, int, const char*)");
-            }},
-            jg::test_case { "with func", [] {
-                test_free_function_.reset(); // only needed for free function mocks
-                test_free_function_.func = [] (char, bool, int, const char*) { return true; };
+                    jg_test_assert(!mock.function1_.called());
+                    jg_test_assert(mock.function1_.count() == 0);
+                    jg_test_assert(mock.function1_.param<1>() == 0);
+                    jg_test_assert(mock.function1_.param<2>() == false);
+                    jg_test_assert(mock.function1_.param<3>() == 0);
+                    jg_test_assert(mock.function1_.param<4>() == nullptr);
+                    jg_test_assert(mock.function1_.result == false);
+                    jg_test_assert(mock.function1_.func == nullptr);
+                }},
+                jg::test_case { "reset clears state after call", [] {
+                    mock_test_abstract_class mock;
+                    mock.function1_.result = true;
 
-                jg_test_assert(using_mock_test_free_function('a', true, 4711, "foobar1"));
-                jg_test_assert(using_mock_test_free_function('b', true, 4712, "foobar2"));
-                jg_test_assert(using_mock_test_free_function('c', true, 4713, "foobar3"));
-                jg_test_assert(test_free_function_.param<1>() == 'c');
-                jg_test_assert(test_free_function_.param<2>() == true);
-                jg_test_assert(test_free_function_.param<3>() == 4713);
-                jg_test_assert(test_free_function_.param<4>() == "foobar3"s);
-                jg_test_assert(test_free_function_.called());
-                jg_test_assert(test_free_function_.count() == 3);
-                jg_test_assert(test_free_function_.prototype() == "bool test_free_function(char, bool, int, const char*)");
+                    jg_test_assert(using_test_abstract_class(mock, 'a', true, 4711, "foobar1"));
+                    mock.function1_.reset();
+                    jg_test_assert(!mock.function1_.called());
+                    jg_test_assert(mock.function1_.count() == 0);
+                    jg_test_assert(mock.function1_.param<1>() == 0);
+                    jg_test_assert(mock.function1_.param<2>() == false);
+                    jg_test_assert(mock.function1_.param<3>() == 0);
+                    jg_test_assert(mock.function1_.param<4>() == nullptr);
+                    jg_test_assert(mock.function1_.result == false);
+                    jg_test_assert(mock.function1_.func == nullptr);
+                }},
+                jg::test_case { "with result", [] {
+                    mock_test_abstract_class mock;
+                    mock.function1_.result = true;
+
+                    jg_test_assert(using_test_abstract_class(mock, 'a', true, 4711, "foobar1"));
+                    jg_test_assert(using_test_abstract_class(mock, 'b', true, 4712, "foobar2"));
+                    jg_test_assert(using_test_abstract_class(mock, 'c', true, 4713, "foobar3"));
+                    jg_test_assert(mock.function1_.param<1>() == 'c');
+                    jg_test_assert(mock.function1_.param<2>() == true);
+                    jg_test_assert(mock.function1_.param<3>() == 4713);
+                    jg_test_assert(mock.function1_.param<4>() == "foobar3"s);
+                    jg_test_assert(mock.function1_.called());
+                    jg_test_assert(mock.function1_.count() == 3);
+                    jg_test_assert(mock.function1_.prototype() == "bool function1(char, bool, int, const char*)");
+                }},
+                jg::test_case { "with func", [] {
+                    mock_test_abstract_class mock;
+                    mock.function1_.func = [] (char, bool, int, const char*) { return true; };
+
+                    jg_test_assert(using_test_abstract_class(mock, 'a', true, 4711, "foobar1"));
+                    jg_test_assert(using_test_abstract_class(mock, 'b', true, 4712, "foobar2"));
+                    jg_test_assert(using_test_abstract_class(mock, 'c', true, 4713, "foobar3"));
+                    jg_test_assert(mock.function1_.param<1>() == 'c');
+                    jg_test_assert(mock.function1_.param<2>() == true);
+                    jg_test_assert(mock.function1_.param<3>() == 4713);
+                    jg_test_assert(mock.function1_.param<4>() == "foobar3"s);
+                    jg_test_assert(mock.function1_.called());
+                    jg_test_assert(mock.function1_.count() == 3);
+                    jg_test_assert(mock.function1_.prototype() == "bool function1(char, bool, int, const char*)");
+                }}
             }}
-        }},
-        jg::test_suite { "virtual functions", {
-            jg::test_case { "non-void called without setting result causes assertion", [] {
-                mock_assert_.reset(); // only needed for free function mocks
-                mock_test_abstract_class mock;
+        }};
+    }
+} _;
 
-                using_test_abstract_class(mock, 'a', true, 4711, "foobar1");
-
-                jg_test_assert(mock.function1_.called());
-                jg_test_assert(mock_assert_.called());
-                jg_test_assert(mock_assert_.param<1>() == false);
-            }},
-            jg::test_case { "state is empty before call", [] {
-                mock_test_abstract_class mock;
-
-                jg_test_assert(!mock.function1_.called());
-                jg_test_assert(mock.function1_.count() == 0);
-                jg_test_assert(mock.function1_.param<1>() == 0);
-                jg_test_assert(mock.function1_.param<2>() == false);
-                jg_test_assert(mock.function1_.param<3>() == 0);
-                jg_test_assert(mock.function1_.param<4>() == nullptr);
-                jg_test_assert(mock.function1_.result == false);
-                jg_test_assert(mock.function1_.func == nullptr);
-            }},
-            jg::test_case { "reset clears state after call", [] {
-                mock_test_abstract_class mock;
-                mock.function1_.result = true;
-
-                jg_test_assert(using_test_abstract_class(mock, 'a', true, 4711, "foobar1"));
-                mock.function1_.reset();
-                jg_test_assert(!mock.function1_.called());
-                jg_test_assert(mock.function1_.count() == 0);
-                jg_test_assert(mock.function1_.param<1>() == 0);
-                jg_test_assert(mock.function1_.param<2>() == false);
-                jg_test_assert(mock.function1_.param<3>() == 0);
-                jg_test_assert(mock.function1_.param<4>() == nullptr);
-                jg_test_assert(mock.function1_.result == false);
-                jg_test_assert(mock.function1_.func == nullptr);
-            }},
-            jg::test_case { "with result", [] {
-                mock_test_abstract_class mock;
-                mock.function1_.result = true;
-
-                jg_test_assert(using_test_abstract_class(mock, 'a', true, 4711, "foobar1"));
-                jg_test_assert(using_test_abstract_class(mock, 'b', true, 4712, "foobar2"));
-                jg_test_assert(using_test_abstract_class(mock, 'c', true, 4713, "foobar3"));
-                jg_test_assert(mock.function1_.param<1>() == 'c');
-                jg_test_assert(mock.function1_.param<2>() == true);
-                jg_test_assert(mock.function1_.param<3>() == 4713);
-                jg_test_assert(mock.function1_.param<4>() == "foobar3"s);
-                jg_test_assert(mock.function1_.called());
-                jg_test_assert(mock.function1_.count() == 3);
-                jg_test_assert(mock.function1_.prototype() == "bool function1(char, bool, int, const char*)");
-            }},
-            jg::test_case { "with func", [] {
-                mock_test_abstract_class mock;
-                mock.function1_.func = [] (char, bool, int, const char*) { return true; };
-
-                jg_test_assert(using_test_abstract_class(mock, 'a', true, 4711, "foobar1"));
-                jg_test_assert(using_test_abstract_class(mock, 'b', true, 4712, "foobar2"));
-                jg_test_assert(using_test_abstract_class(mock, 'c', true, 4713, "foobar3"));
-                jg_test_assert(mock.function1_.param<1>() == 'c');
-                jg_test_assert(mock.function1_.param<2>() == true);
-                jg_test_assert(mock.function1_.param<3>() == 4713);
-                jg_test_assert(mock.function1_.param<4>() == "foobar3"s);
-                jg_test_assert(mock.function1_.called());
-                jg_test_assert(mock.function1_.count() == 3);
-                jg_test_assert(mock.function1_.prototype() == "bool function1(char, bool, int, const char*)");
-            }}
-        }}
-    }};
 }

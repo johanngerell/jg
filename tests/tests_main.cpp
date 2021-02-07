@@ -1,6 +1,4 @@
 #include <jg_mock.h>
-#define JG_TEST_IMPL
-#include <jg_test.h>
 
 // There should be NO tests in this file. We only want to compile this file ONCE. It'll reduce the total
 // test compilation time as only individual tests in other translation units change.
@@ -16,18 +14,6 @@ JG_MOCK(,,, void, mock_assert, bool);
 // For testing mocking free functions work. The corresponding JG_MOCK_REF is in mock_tests.cpp.
 JG_MOCK(,,, bool, test_free_function, char, bool, int, const char*);
 
-jg::test_suites test_mock();
-jg::test_suites test_args();
-jg::test_suites test_optional();
-jg::test_suites test_string();
-
-int main()
-{
-    return jg::test_run(
-    {
-        test_mock(),
-        test_args(),
-        test_optional(),
-        test_string()
-    });
-}
+#define JG_TEST_MAIN
+#define JG_TEST_IMPL
+#include <jg_test.h>
