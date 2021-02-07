@@ -83,22 +83,4 @@ constexpr std::optional<U> from_chars(std::string_view string)
     return std::nullopt;
 }
 
-template <size_t SIZE_WITH_NUL>
-class fixed_string final
-{
-public:
-    constexpr fixed_string(const char (&string)[SIZE_WITH_NUL])
-    {
-        static_assert(string[SIZE_WITH_NUL - 1] == '\0');
-
-        for (size_t i = 0; i < SIZE_WITH_NUL; ++i)
-            m_string[i] = string[i];
-    }
-
-    operator std::string_view() const { return {m_string, SIZE_WITH_NUL - 1}; }
-
-private:
-    char m_string[SIZE_WITH_NUL];
-};
-
 } // namespace jg
