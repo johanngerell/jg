@@ -79,11 +79,15 @@ void test_assert_exception_impl(TExprFunc&& expr_func, const char* expr_string, 
 } // namespace detail
 } // namespace jg
 
-/// These macros can be used both on their own in simple test files (like `main.cpp` with a bunch of
-/// assertions) and in test cases inside suites run by `test_run()`. They will not exit the test program,
-/// only output error information and propagate metrics back to `test_run()`, if that's used.
+/// The `jg_test_assert` macro can be used both on its own in simple test files (like `main.cpp` with a
+/// bunch of assertions) and in test cases inside suites. It will not exit the test program, only output
+/// error information and propagate metrics back to `test_run()`, if that's used.
 #define jg_test_assert(expr) \
     jg::detail::test_assert_impl((expr), #expr, __FILE__,  __LINE__)
+
+/// The `jg_test_assert_exception` macro can be used both on its own in simple test files (like `main.cpp`
+/// with a bunch of assertions) and in test cases inside suites. It will not exit the test program, only
+/// output error information and propagate metrics back to `test_run()`, if that's used.
 #define jg_test_assert_exception(expr, exception_type) \
     jg::detail::test_assert_exception_impl<exception_type>([&] { (expr); }, #expr, __FILE__,  __LINE__)
 
