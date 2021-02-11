@@ -7,8 +7,7 @@
 
 #include <ctime>
 
-namespace jg {
-namespace os {
+namespace jg::os {
 
 /// Formats a time string in the format "Www Mmm dd hh:mm:ss yyyy\n", with individual fixed-length fields.
 /// This string has length 25, which means that `size` must be at least size 26 to fit the null-terminator.
@@ -16,14 +15,12 @@ bool ctime_safe(char* buffer, size_t size, time_t time);
 
 tm* localtime_safe(time_t time, tm& result);
 
-} // namespace os
-} // namespace jg
+} // namespace jg::os
 
 #ifdef JG_OS_IMPL
 #undef JG_OS_IMPL
 
-namespace jg {
-namespace os {
+namespace jg::os {
 
 bool ctime_safe(char* buffer, size_t size, time_t time)
 {
@@ -49,8 +46,7 @@ tm* localtime_safe(time_t time, tm& result)
 #endif
 }
 
-} // namespace os
-} // namespace jg
+} // namespace jg::os
 
 #endif // ifdef JG_OS_IMPL
 #endif // ifndef JG_OS_INCLUDED

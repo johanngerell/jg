@@ -27,6 +27,20 @@ int main()
         "log 1.j\n"
     };
 
+    const std::vector<const char*> logs_no_ln
+    {
+        "log 1.a",
+        "log 1.b",
+        "log 1.c",
+        "log 1.d",
+        "log 1.e",
+        "log 1.f",
+        "log 1.g",
+        "log 1.h",
+        "log 1.i",
+        "log 1.j"
+    };
+
     // {
     //     std::cout << "10 back-to-back logs...\n\n";
     //     const auto t1 = jg::benchmark(10, [&]
@@ -69,6 +83,21 @@ int main()
         {
             for (size_t i = 0; i < 10; ++i)
                 jg_log_info() << logs[i];
+        });
+        std::cout << "\n... average=" << r.average / 10 << "ns, median=" << r.median / 10 << "ns\n";
+
+        // for (auto& sample : r.samples)
+        //     std::cout << sample / 10 << "ns ";
+
+        // std::cout << "\n";
+    }
+
+    {
+        std::cout << "10 back-to-back macro line logs with severity, v2...\n\n";
+        const auto r = jg::benchmark(10, [&]
+        {
+            for (size_t i = 0; i < 10; ++i)
+                jg_log_info_line() << logs_no_ln[i];
         });
         std::cout << "\n... average=" << r.average / 10 << "ns, median=" << r.median / 10 << "ns\n";
 
