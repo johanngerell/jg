@@ -2,8 +2,7 @@
 
 #include "jg_verify.h"
 
-namespace jg
-{
+namespace jg {
 
 // Trivial drop-in pre-C++20 replacement for std::span.
 template <typename T>

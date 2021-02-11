@@ -2,8 +2,7 @@
 
 #include <chrono>
 
-namespace jg
-{
+namespace jg {
 
 /// The simplest possible .Net StopWatch rip-off. Continues to measure time from instantiation, regardless
 /// of how many times `ms()`, `us()` or `ns()` are called. Only restarts when assigned a new instance.

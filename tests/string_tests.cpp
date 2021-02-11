@@ -1,8 +1,7 @@
 #include <jg_string.h>
 #include <jg_test.h>
 
-namespace
-{
+namespace {
 
 struct string_tests final : jg::test_suites_base<string_tests>
 {

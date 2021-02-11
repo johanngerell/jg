@@ -8,8 +8,7 @@
 #include "jg_span.h"
 #include "jg_verify.h"
 
-namespace jg
-{
+namespace jg {
 
 inline std::string& trim_left(std::string& string, const std::string& chars = "\t\n\v\f\r ")
 {

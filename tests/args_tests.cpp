@@ -2,8 +2,7 @@
 #include <jg_string.h>
 #include "test_helpers.h"
 
-namespace
-{
+namespace {
 
 struct args_tests final : jg::test_suites_base<args_tests>
 {

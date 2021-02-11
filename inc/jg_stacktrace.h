@@ -23,8 +23,7 @@
     #endif
 #endif
 
-namespace jg
-{
+namespace jg {
 
 struct stack_frame final
 {

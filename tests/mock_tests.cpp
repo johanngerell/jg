@@ -7,8 +7,7 @@ JG_MOCK_REF(,,, bool, test_free_function, char, bool, int, const char*);
 // For checking if the auxiliary result is properly verified when used without being set.
 JG_MOCK_REF(,,, void, mock_assert, bool);
 
-namespace
-{
+namespace {
 
 bool using_mock_test_free_function(char c, bool b, int i, const char* s)
 {

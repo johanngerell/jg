@@ -1,9 +1,9 @@
 #pragma once
 
+#include "jg_algorithm.h"
 #include "jg_string.h"
 
-namespace jg
-{
+namespace jg {
 
 /// Iterates over command line arguments passed to the main() function in its argc-argv parameters.
 ///
@@ -32,35 +32,18 @@ private:
     iterator m_last{};
 };
 
-namespace detail
-{
-
-// Algorithms aren't constexpr in C++17
-template <typename FwdIt, typename Pred>
-constexpr FwdIt find_if(FwdIt first, FwdIt last, Pred pred)
-{
-    for (; first != last; ++first)
-        if (pred(*first))
-            return first;
-    
-    return last;
-}
-
-} // namespace detail
-
 /// Checks if there is an item in `args` that starts with `key` and then returns the remainder of the item.
 /// If the item is "--foo=bar", then a check for the key "--foo=" will return "bar".
 /// If no item starts with `key`, then `std::nullopt` is returned.
 constexpr std::optional<std::string_view> args_key_value(jg::args args, std::string_view key) noexcept
 {
     // Use std::find_if in C++20
-    auto it = detail::find_if(args.begin(),
-                              args.end(),
-                              [key] (auto& arg) { return starts_with(arg, key); });
+    auto it = jg::find_if(args.begin(),
+                          args.end(),
+                          [key] (auto& arg) { return starts_with(arg, key); });
 
     if (it != args.end())
-        return std::string_view(*it).substr(key.length());
-        //return *it + key.length();
+        return *it + key.length();
     
     return std::nullopt;
 }
@@ -70,9 +53,9 @@ constexpr std::optional<std::string_view> args_key_value(jg::args args, std::str
 constexpr bool args_has_key(jg::args args, std::string_view key) noexcept
 {
     // Use std::any_of in C++20
-    auto it = detail::find_if(args.begin(),
-                              args.end(),
-                              [key] (auto& arg) { return key == arg; });
+    auto it = jg::find_if(args.begin(),
+                          args.end(),
+                          [key] (auto& arg) { return key == arg; });
 
     return it != args.end();
 }

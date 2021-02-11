@@ -14,8 +14,7 @@
 /// @note By defining JG_TEST_ENABLE_SHORT_NAME before including this header, the shorter macro name
 /// `jg_assert` can be used instead of `jg_test_assert`.
 
-namespace jg
-{
+namespace jg {
 
 struct test_case final
 {
@@ -53,8 +52,9 @@ public:
     test_suites_base& operator=(const test_suites_base&) = delete;
 };
 
-namespace detail
-{
+} // namespace jg
+
+namespace jg::detail {
 
 void test_assert_prolog();
 void test_assert_epilog(const char* expr_string, const char* file, int line);
@@ -76,8 +76,7 @@ void test_assert_exception_impl(TExprFunc&& expr_func, const char* expr_string, 
     jg::detail::test_assert_epilog(expr_string, file, line);
 }
 
-} // namespace detail
-} // namespace jg
+} // namespace jg::detail
 
 /// The `jg_test_assert` macro can be used both on its own in simple test files (like `main.cpp` with a
 /// bunch of assertions) and in test cases inside suites. It will not exit the test program, only output
@@ -97,8 +96,8 @@ void test_assert_exception_impl(TExprFunc&& expr_func, const char* expr_string, 
 
 #ifdef JG_TEST_IMPL
 
-namespace jg
-{
+// TODO: Fix namespaces
+namespace jg {
 
 static std::vector<test_suites> super_suites;
 
@@ -107,8 +106,7 @@ void test_add(jg::test_suites&& suites)
     super_suites.push_back(std::move(suites));
 }
 
-namespace detail
-{
+namespace detail {
 
 struct test_metrics final
 {

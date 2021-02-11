@@ -1,7 +1,6 @@
 #pragma once
 
-namespace jg
-{
+namespace jg {
 
 /// @class jg::state_scope_value
 ///

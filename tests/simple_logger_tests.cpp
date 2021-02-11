@@ -8,8 +8,7 @@
 #define JG_OS_IMPL
 #include <jg_os.h>
 
-namespace
-{
+namespace {
 
 // Makes a "correct" timestamp for testing purposes.
 jg::timestamp make_timestamp(size_t hours, size_t minutes, size_t seconds, size_t milliseconds)

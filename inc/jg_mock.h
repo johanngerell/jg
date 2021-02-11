@@ -22,10 +22,7 @@
 // /Zc:__cplusplus to enable checking #if (__cplusplus < 201402L) etc.
 //
 
-namespace jg
-{
-namespace detail 
-{
+namespace jg::detail {
 
 #if (__cplusplus >= 201402L)
 // C++20 has std::remove_cvref<>.
@@ -289,8 +286,7 @@ public:
     }
 };
 
-} // namespace detail
-} // namespace jg
+} // namespace jg::detail
 
 #define _JG_CONCAT5(x1, x2, x3, x4, x5) x1 ## x2 ## x3 ## x4 ## x5
 #define _JG_CONCAT2(x1, x2) x1 ## x2

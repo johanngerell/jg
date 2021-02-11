@@ -4,8 +4,7 @@
 
 JG_MOCK_REF(,,, void, mock_assert, bool);
 
-namespace
-{
+namespace {
 
 struct my_type final
 {

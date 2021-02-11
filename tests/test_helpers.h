@@ -4,8 +4,7 @@
 #include <vector>
 #include <jg_args.h>
 
-namespace test_helpers
-{
+namespace test_helpers {
 
 // Makes it easy to fake command line argc-argv pairs, jg::args, etc. in tests.
 class cmdline final

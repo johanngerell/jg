@@ -1,9 +1,8 @@
 #pragma once
 
-#include <jg_verify.h>
+#include "jg_verify.h"
 
-namespace jg
-{
+namespace jg {
 
 // Trivial drop-in pre-C++14 replacement for std::optional. std::optional is in std::experimental
 // for C++14 and in std for C++17. It supports only the most basic scenarios and will always invoke

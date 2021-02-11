@@ -7,8 +7,7 @@
     void JG_VERIFY_ASSERTION(bool);
 #endif
 
-namespace jg
-{
+namespace jg {
 
 /// Verifies that `condition` evaluates to `true`.
 ///

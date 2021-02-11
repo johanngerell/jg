@@ -3,8 +3,7 @@
 #include <iostream>
 #include <string_view>
 
-namespace jg
-{
+namespace jg {
 
 template <typename Tag>
 struct ansi_color
