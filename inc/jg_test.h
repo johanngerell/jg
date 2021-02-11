@@ -1,4 +1,9 @@
-#pragma once
+#ifdef JG_TEST_IMPL
+#undef JG_TEST_INCLUDED
+#endif
+
+#ifndef JG_TEST_INCLUDED
+#define JG_TEST_INCLUDED
 
 #include <iostream>
 #include <functional>
@@ -42,7 +47,7 @@ int test_run();
 template <typename TSuitesImpl>
 class test_suites_base
 {
-public:
+protected:
     test_suites_base()
     {
         test_add((*static_cast<TSuitesImpl*>(this))());
@@ -95,18 +100,9 @@ void test_assert_exception_impl(TExprFunc&& expr_func, const char* expr_string, 
 #endif
 
 #ifdef JG_TEST_IMPL
+#undef JG_TEST_IMPL
 
-// TODO: Fix namespaces
-namespace jg {
-
-static std::vector<test_suites> super_suites;
-
-void test_add(jg::test_suites&& suites)
-{
-    super_suites.push_back(std::move(suites));
-}
-
-namespace detail {
+namespace {
 
 struct test_metrics final
 {
@@ -119,56 +115,32 @@ struct test_metrics final
 
 struct test_state final
 {
-    test_metrics metrics{};
-    test_case*   current_case{};
-    test_suite*  current_suite{};
-    test_suites* current_suites{};
+    test_metrics     metrics;
+    jg::test_case*   current_case{};
+    jg::test_suite*  current_suite{};
+    jg::test_suites* current_suites{};
 };
 
 // Allowing the current test_state to be unset makes it possible to use the jg_test_assert macro
 // outside of test cases and suites, which is useful for quick main()-only tests that doesn't call
 // test_run, but that might grow to more complete suites.
-static test_state* current_state{};
+test_state* current_state{};
 
-void test_assert_prolog()
-{
-    if (current_state)
-        current_state->metrics.assertion_count++;
+std::vector<jg::test_suites> super_suites;
+
 }
 
-void test_assert_epilog(const char* expr_string, const char* file, int line)
+namespace jg {
+
+void test_add(jg::test_suites&& suites)
 {
-    if (current_state)
-    {
-        if (current_state->current_suite->case_fail_count == 0)
-        {
-            jg::ostream_color_scope(std::cout, jg::fg_red_bright()) << "  Failed test suite ";
-            jg::ostream_color_scope(std::cout, jg::fg_cyan_bright()) << '\'' << current_state->current_suite->description << "'\n";
-        }
-
-        if (current_state->current_case->assertion_fail_count == 0)
-        {
-            current_state->current_suite->case_fail_count++;
-            jg::ostream_color_scope(std::cout, jg::fg_red_bright()) << "    Failed test case ";
-            jg::ostream_color_scope(std::cout, jg::fg_cyan_bright()) << '\'' << current_state->current_case->description << "'\n";
-        }
-
-        current_state->current_case->assertion_fail_count++;
-        current_state->metrics.assertion_fail_count++;
-    }
-
-    jg::ostream_color_scope(std::cout, jg::fg_red_bright()) << (current_state ? "      " : "") << "Failed test assertion ";
-    jg::ostream_color_scope(std::cout, jg::fg_cyan_bright()) << '\'' << expr_string << '\'';
-    std::cout << " at ";
-    jg::ostream_color_scope(std::cout, jg::fg_magenta_bright()) << file << ':' << line << '\n';
+    super_suites.push_back(std::move(suites));
 }
-
-} // namespace detail
 
 int test_run()
 {
-    detail::test_state state{};
-    detail::current_state = &state;
+    test_state state{};
+    current_state = &state;
 
     for (auto& suites : super_suites)
     {
@@ -213,8 +185,45 @@ int test_run()
 
 } // namespace jg
 
-#undef JG_TEST_IMPL
-#endif
+namespace jg::detail {
+
+void test_assert_prolog()
+{
+    if (current_state)
+        current_state->metrics.assertion_count++;
+}
+
+void test_assert_epilog(const char* expr_string, const char* file, int line)
+{
+    if (current_state)
+    {
+        if (current_state->current_suite->case_fail_count == 0)
+        {
+            jg::ostream_color_scope(std::cout, jg::fg_red_bright()) << "  Failed test suite ";
+            jg::ostream_color_scope(std::cout, jg::fg_cyan_bright()) << '\'' << current_state->current_suite->description << "'\n";
+        }
+
+        if (current_state->current_case->assertion_fail_count == 0)
+        {
+            current_state->current_suite->case_fail_count++;
+            jg::ostream_color_scope(std::cout, jg::fg_red_bright()) << "    Failed test case ";
+            jg::ostream_color_scope(std::cout, jg::fg_cyan_bright()) << '\'' << current_state->current_case->description << "'\n";
+        }
+
+        current_state->current_case->assertion_fail_count++;
+        current_state->metrics.assertion_fail_count++;
+    }
+
+    jg::ostream_color_scope(std::cout, jg::fg_red_bright()) << (current_state ? "      " : "") << "Failed test assertion ";
+    jg::ostream_color_scope(std::cout, jg::fg_cyan_bright()) << '\'' << expr_string << '\'';
+    std::cout << " at ";
+    jg::ostream_color_scope(std::cout, jg::fg_magenta_bright()) << file << ':' << line << '\n';
+}
+
+} // namespace jg::detail
+
+#endif // #ifdef JG_TEST_IMPL
+#endif // #ifndef JG_TEST_INCLUDED
 
 #ifdef JG_TEST_MAIN
 int main()
