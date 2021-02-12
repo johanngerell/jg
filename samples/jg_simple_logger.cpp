@@ -1,6 +1,8 @@
-#include <chrono>
-#include <thread>
 #include <algorithm>
+#include <chrono>
+#include <iomanip>
+#include <iterator>
+#include <thread>
 #include <vector>
 #define JG_OS_IMPL
 #include <jg_os.h>
@@ -8,219 +10,141 @@
 #include <jg_simple_logger.h>
 #include <jg_stopwatch.h>
 #include <jg_benchmark.h>
+#include <jg_string.h>
+
+template <typename FwdIt>
+struct joiner final
+{
+    FwdIt first{};
+    FwdIt last{};
+    const char* separator{", "};
+
+    friend std::ostream& operator<<(std::ostream& stream, const joiner& self)
+    {
+        bool separate = false;
+        for(auto it = self.first; it != self.last; ++it)
+            stream << (separate ? self.separator : (separate = true, "")) << *it;
+        
+        return stream;
+    }
+};
+
+template <typename FwdIt>
+joiner<FwdIt> join(FwdIt first, FwdIt last, const char* separator = ", ")
+{
+    return {first, last, separator};
+}
 
 int main()
 {
     std::cout << "jg_simple_logger sample...\n\n";
 
-    const std::vector<const char*> logs
+    const std::vector<const char*> logs_with_newline
     {
-        "log 1.a\n",
-        "log 1.b\n",
-        "log 1.c\n",
-        "log 1.d\n",
-        "log 1.e\n",
-        "log 1.f\n",
-        "log 1.g\n",
-        "log 1.h\n",
-        "log 1.i\n",
-        "log 1.j\n"
+        "abcdefghij\n", "bcdefghija\n", "cdefghijab\n", "defghijabc\n", "efghijabcd\n",
+        "fghijabcde\n", "ghijabcdef\n", "hijabcdefg\n", "ijabcdefgh\n", "jabcdefghi\n"
     };
 
-    const std::vector<const char*> logs_no_ln
+    const std::vector<const char*> logs_without_newline
     {
-        "log 1.a",
-        "log 1.b",
-        "log 1.c",
-        "log 1.d",
-        "log 1.e",
-        "log 1.f",
-        "log 1.g",
-        "log 1.h",
-        "log 1.i",
-        "log 1.j"
+        "abcdefghij", "bcdefghija", "cdefghijab", "defghijabc", "efghijabcd",
+        "fghijabcde", "ghijabcdef", "hijabcdefg", "ijabcdefgh", "jabcdefghi"
     };
 
-    // {
-    //     std::cout << "10 back-to-back logs...\n\n";
-    //     const auto t1 = jg::benchmark(10, [&]
-    //     {
-    //         for (size_t i = 0; i < 10; ++i)
-    //             jg::log() << logs[i];
-    //     });
-    //     std::cout << "\n... " << t1.count() / 10 << " ns\n";
-    // }
-
-    // {
-    //     std::cout << "10 back-to-back logs with severity, v1...\n\n";
-    //     const auto t1 = jg::benchmark(10, [&]
-    //     {
-    //         for (size_t i = 0; i < 10; ++i)
-    //             jg::log() << jg::log_severity::info << logs[i];
-    //     });
-    //     std::cout << "\n... " << t1.count() / 10 << " ns\n";
-    // }
+    std::vector<jg::benchmark_result> benchmarks;
 
     {
-        std::cout << "10 back-to-back logs with severity, v2...\n\n";
-        jg::log_info() << "\n";
-        const auto r = jg::benchmark(10, [&]
+        auto r = jg::benchmark("jg::log_info with nl", 10, 10, [&]
         {
             for (size_t i = 0; i < 10; ++i)
-                jg::log_info() << logs[i];
+                jg::log_info() << logs_with_newline[i];
         });
-        std::cout << "\n... average=" << r.average / 10 << "ns, median=" << r.median / 10 << "ns\n";
-
-        // for (auto& sample : r.samples)
-        //     std::cout << sample / 10 << "ns ";
-
-        // std::cout << "\n";
+        benchmarks.push_back(std::move(r));
     }
 
     {
-        std::cout << "10 back-to-back macro logs with severity, v2...\n\n";
-        const auto r = jg::benchmark(10, [&]
+        auto r = jg::benchmark("jg::log_info_line no nl", 10, 10, [&]
         {
             for (size_t i = 0; i < 10; ++i)
-                jg_log_info() << logs[i];
+                jg::log_info_line() << logs_without_newline[i];
         });
-        std::cout << "\n... average=" << r.average / 10 << "ns, median=" << r.median / 10 << "ns\n";
-
-        // for (auto& sample : r.samples)
-        //     std::cout << sample / 10 << "ns ";
-
-        // std::cout << "\n";
+        benchmarks.push_back(std::move(r));
     }
 
     {
-        std::cout << "10 back-to-back macro line logs with severity, v2...\n\n";
-        const auto r = jg::benchmark(10, [&]
+        auto r = jg::benchmark("jg_log_info with nl", 10, 10, [&]
         {
             for (size_t i = 0; i < 10; ++i)
-                jg_log_info_line() << logs_no_ln[i];
+                jg_log_info() << logs_with_newline[i];
         });
-        std::cout << "\n... average=" << r.average / 10 << "ns, median=" << r.median / 10 << "ns\n";
-
-        // for (auto& sample : r.samples)
-        //     std::cout << sample / 10 << "ns ";
-
-        // std::cout << "\n";
+        benchmarks.push_back(std::move(r));
     }
 
-    // {
-    //     std::cout << "10 back-to-back inline func logs with severity, v2...\n\n";
-    //     const auto r = jg::benchmark2(10, [&]
-    //     {
-    //         for (size_t i = 0; i < 10; ++i)
-    //             jg::log_info(logs[i]);
-    //     });
-    //     std::cout << "\n... average=" << r.average / 10 << "ns, median=" << r.median / 10 << "ns\n";
+    {
+        auto r = jg::benchmark("jg_log_info_line no nl", 10, 10, [&]
+        {
+            for (size_t i = 0; i < 10; ++i)
+                jg_log_info_line() << logs_without_newline[i];
+        });
+        benchmarks.push_back(std::move(r));
+    }
 
-    //     // for (auto& sample : r.samples)
-    //     //     std::cout << sample / 10 << "ns ";
+    std::vector<jg::timestamp> timestamps(100);
 
-    //     // std::cout << "\n";
-    // }
+    {
+        auto r = jg::benchmark("jg::timestamp::now", 10, 100, [&]
+        {
+            for (size_t i = 0; i < 100; ++i)
+                timestamps[i] = jg::timestamp::now();
+        });
+        benchmarks.push_back(std::move(r));
+    }
 
-    // {
-    //     std::cout << "10 back-to-back inline func logs no string with severity, v2...\n\n";
-    //     const auto t1 = jg::benchmark(10, [&]
-    //     {
-    //         for (size_t i = 0; i < 10; ++i)
-    //             jg::log_info_conditionally_no_string();
-    //     });
-    //     std::cout << "\n... " << t1.count() / 10 << " ns\n";
-    // }
+    {
+        auto r = jg::benchmark("jg::timestamp_format", 10, 100, [&]
+        {
+            jg::timestamp_buffer buffer;
+            for (size_t i = 0; i < 100; ++i)
+                jg::timestamp_format(timestamps[i], buffer);
+        });
+        benchmarks.push_back(std::move(r));
+    }
 
-    // {
-    //     std::cout << "10 back-to-back inline func logs only string with severity, v2...\n\n";
-    //     const auto t1 = jg::benchmark(10, [&]
-    //     {
-    //         for (size_t i = 0; i < 10; ++i)
-    //             jg::log_info_conditionally_only_string(logs[i]);
-    //     });
-    //     std::cout << "\n... " << t1.count() / 10 << " ns\n";
-    // }
+    {
+        std::vector<std::string> strings(100);
+        auto r = jg::benchmark("jg::to_string(timestamp)", 10, 100, [&]
+        {
+            for (size_t i = 0; i < 100; ++i)
+                strings[i] = to_string(timestamps[i]);
+        });
+        benchmarks.push_back(std::move(r));
+    }
 
-    // {
-    //     std::cout << "10 back-to-back inline func logs timestamp and string with severity, v2...\n\n";
-    //     const auto t1 = jg::benchmark(10, [&]
-    //     {
-    //         for (size_t i = 0; i < 10; ++i)
-    //             jg::log_info_conditionally_timestamp_string(logs[i]);
-    //     });
-    //     std::cout << "\n... " << t1.count() / 10 << " ns\n";
-    // }
+    const auto column1_width = std::max_element(
+        benchmarks.begin(),
+        benchmarks.end(),
+        [](const auto& first, const auto& second) {
+            return first.description.length() < second.description.length();
+        })->description.length() + 3;
 
-    // {
-    //     std::cout << "10 back-to-back inline func logs with severity, v3...\n\n";
-    //     const auto t1 = jg::benchmark(10, [&]
-    //     {
-    //         for (size_t i = 0; i < 10; ++i)
-    //             jg::log_info_conditionally(logs[i]);
-    //     });
-    //     std::cout << "\n... " << t1.count() / 10 << " ns\n";
-    // }
+    const std::string_view header1{"average (ns)"};
+    const std::string_view header2{"median (ns)"};
+    const std::string_view header3{"stddev (ns)"};
+    const std::string_view header4{"samples (ns)"};
+    const std::string_view header_{"------------"};
+    const auto columnN_width{header_.length() + 2};
 
-    // std::cout << "\n10 'cooked' logs, v1...\n\n";
-    // std::vector<jg::timestamp> timestamps;
-    // std::generate_n(std::back_inserter(timestamps), 10, []
-    // {
-    //     std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    //     return jg::timestamp::now();
-    // });
+    std::cout << std::setw(column1_width + columnN_width) << header1 << std::setw(columnN_width) << header2 << std::setw(columnN_width) << header3 << std::setw(columnN_width) << header4 << '\n'
+              << std::setw(column1_width + columnN_width) << header_ << std::setw(columnN_width) << header_ << std::setw(columnN_width) << header_ << std::setw(columnN_width) << header_ << '\n';
 
-    // {
-    //     const auto t2 = jg::benchmark(10, [&]
-    //     {
-    //         for (size_t i = 0; i < 10; ++i)
-    //             std::clog << timestamps[i] << logs[i];
-    //     });
-    //     std::cout << "\n... " << t2.count() / 10 << " ns\n";
-    // }
-
-    // {
-    //     std::cout << "\n10 'cooked' logs, v2...\n\n";
-    //     const auto t3 = jg::benchmark(10, [&]
-    //     {
-    //         for (size_t i = 0; i < 10; ++i)
-    //             std::clog << to_string(timestamps[i]) << logs[i];
-    //     });
-    //     std::cout << "\n... " << t3.count() / 10 << " ns\n";
-    // }
-
-    // {
-    //     std::cout << "\n10 timestamps...\n\n";
-    //     const auto t4 = jg::benchmark(10, [&]
-    //     {
-    //         for (size_t i = 0; i < 10; ++i)
-    //             timestamps[i] = jg::timestamp::now();
-    //     });
-    //     std::cout << "... " << t4.count() / 10 << " ns\n";
-    //     std::cout << "... last: " << timestamps.back() << "\n... first: " << timestamps.front() << "\n";
-    // }
-
-    // {    
-    //     std::cout << "\n10 to_string(timestamp)...\n\n";
-    //     std::vector<std::string> strings(10);
-    //     const auto t5 = jg::benchmark(10, [&]
-    //     {
-    //         for (size_t i = 0; i < 10; ++i)
-    //             strings[i] = to_string(timestamps[i]);
-    //     });
-    //     std::cout << "... " << t5.count() / 10 << " ns\n";
-    //     std::cout << "... last: " << strings.back() << "\n... first: " << strings.front() << "\n";
-    // }
-
-    // {
-    //     std::cout << "\n10 operator<<(ostream, timestamp)...\n\n";
-    //     const auto t6 = jg::benchmark(10, [&]
-    //     {
-    //         for (size_t i = 0; i < 10; ++i)
-    //             std::clog << timestamps[i] << "\n";
-    //     });
-    //     std::cout << "... " << t6.count() / 10 << " ns\n";
-    // }
+    for (const auto& b : benchmarks)
+    {
+        std::cout << std::setw(column1_width) << std::left << b.description << std::right
+                  << std::setw(columnN_width) << b.average
+                  << std::setw(columnN_width) << b.median
+                  << std::setw(columnN_width) << b.std_deviation
+                  << "  [" << join(b.samples.begin(), b.samples.end()) << "]\n";
+    }
 
     std::cout << "\n...done\n";
 }
