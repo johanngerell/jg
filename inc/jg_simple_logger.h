@@ -110,7 +110,7 @@ std::ostream& log_fatal();
 class ostream_line final
 {
 public:
-    ostream_line(std::ostream& stream)
+    ostream_line(std::ostream& stream = std::cout)
         : m_stream{&stream}
     {}
 
