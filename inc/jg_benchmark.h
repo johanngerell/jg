@@ -14,6 +14,7 @@ struct benchmark_result final
     sample_type average{};
     sample_type median{};
     sample_type std_deviation{};
+    sample_type median_abs_deviation{};
 };
 
 template <typename Func>
@@ -30,16 +31,10 @@ benchmark_result benchmark(std::string_view description, size_t sample_count, si
         result.samples.push_back(sw.ns() / func_internal_count);
     }
 
-    result.average = jg::average(result.samples.begin(), result.samples.end());
-    result.median = jg::median(result.samples.begin(), result.samples.end());
-
-    benchmark_result::sample_type variance{};
-
-    for (auto& value : result.samples)
-        variance += (value - result.average) * (value - result.average);
-
-    variance /= result.samples.size();
-    result.std_deviation = sqrt(variance);
+    result.average              = jg::average(result.samples.begin(), result.samples.end());
+    result.median               = jg::median(result.samples.begin(), result.samples.end());
+    result.std_deviation        = jg::median_absolute_deviation(result.samples.begin(), result.samples.end(), result.average);
+    result.median_abs_deviation = jg::median_absolute_deviation(result.samples.begin(), result.samples.end(), result.median);
 
     return result;
 }
