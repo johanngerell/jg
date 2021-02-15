@@ -16,6 +16,17 @@
             "MIMode": "lldb"
         },
         {
+            "name": "(Mac) jg_simple_logger - debug",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/mac/debug/jg_simple_logger",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "MIMode": "lldb"
+        },
+        {
             "name": "(Mac) jg_args.cpp - debug",
             "type": "cppdbg",
             "request": "launch",
