@@ -9,7 +9,7 @@
 #include <functional>
 #include <vector>
 #include "jg_state_scope.h"
-#include "jg_ostream_color_scope.h"
+#include "jg_ostream_color.h"
 
 /// @file Testing facilities, like test assertions, test cases, test suites, test runner, etc.
 /// @note One translation unit *must* define JG_TEST_IMPL before including this header. This is typically
@@ -144,8 +144,8 @@ int test_run()
 
     for (auto& suites : super_suites)
     {
-        std::cout << "Running test super suite ";
-        jg::ostream_color_scope(std::cout, jg::fg_cyan_bright()) << '\'' << suites.description << "'\n";
+        std::cout << "Running test super suite "
+                  << jg::ostream_color(jg::fg_cyan_bright()) << '\'' << suites.description << "'\n";
 
         state.metrics.suite_count += suites.items.size();
         state_scope_value test_suites_scope(state.current_suites, &suites, nullptr);
@@ -167,13 +167,13 @@ int test_run()
     }
 
     if (state.metrics.case_count == 0)
-        jg::ostream_color_scope(std::cout, jg::fg_yellow_bright()) << "No test cases\n";
+        std::cout << jg::ostream_color(jg::fg_yellow_bright()) << "No test cases\n";
     else
     {
         if (state.metrics.assertion_fail_count > 0)
             ; // suite and case failures are handled in test_assert_impl
         else
-            jg::ostream_color_scope(std::cout, jg::fg_green_bright()) << "All tests succeeded\n";
+            std::cout << jg::ostream_color(jg::fg_green_bright()) << "All tests succeeded\n";
 
         std::cout << state.metrics.assertion_count  << (state.metrics.assertion_count == 1 ? " test assertion" : " test assertions") << '\n'
                   << state.metrics.case_count       << (state.metrics.case_count == 1 ? " test case" : " test cases") << '\n'
@@ -199,25 +199,25 @@ void test_assert_epilog(const char* expr_string, const char* file, int line)
     {
         if (current_state->current_suite->case_fail_count == 0)
         {
-            jg::ostream_color_scope(std::cout, jg::fg_red_bright()) << "  Failed test suite ";
-            jg::ostream_color_scope(std::cout, jg::fg_cyan_bright()) << '\'' << current_state->current_suite->description << "'\n";
+            std::cout << jg::ostream_color(jg::fg_red_bright()) << "  Failed test suite ";
+            std::cout << jg::ostream_color(jg::fg_cyan_bright()) << '\'' << current_state->current_suite->description << "'\n";
         }
 
         if (current_state->current_case->assertion_fail_count == 0)
         {
             current_state->current_suite->case_fail_count++;
-            jg::ostream_color_scope(std::cout, jg::fg_red_bright()) << "    Failed test case ";
-            jg::ostream_color_scope(std::cout, jg::fg_cyan_bright()) << '\'' << current_state->current_case->description << "'\n";
+            std::cout << jg::ostream_color(jg::fg_red_bright()) << "    Failed test case ";
+            std::cout << jg::ostream_color(jg::fg_cyan_bright()) << '\'' << current_state->current_case->description << "'\n";
         }
 
         current_state->current_case->assertion_fail_count++;
         current_state->metrics.assertion_fail_count++;
     }
 
-    jg::ostream_color_scope(std::cout, jg::fg_red_bright()) << (current_state ? "      " : "") << "Failed test assertion ";
-    jg::ostream_color_scope(std::cout, jg::fg_cyan_bright()) << '\'' << expr_string << '\'';
+    std::cout << jg::ostream_color(jg::fg_red_bright()) << (current_state ? "      " : "") << "Failed test assertion ";
+    std::cout << jg::ostream_color(jg::fg_cyan_bright()) << '\'' << expr_string << '\'';
     std::cout << " at ";
-    jg::ostream_color_scope(std::cout, jg::fg_magenta_bright()) << file << ':' << line << '\n';
+    std::cout << jg::ostream_color(jg::fg_magenta_bright()) << file << ':' << line << '\n';
 }
 
 } // namespace jg::detail

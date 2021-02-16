@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include <optional>
 #include <string_view>
 
 namespace jg {
@@ -53,35 +54,48 @@ constexpr bg_color bg_magenta_bright() { return {"105"}; }
 constexpr bg_color bg_cyan_bright()    { return {"106"}; }
 constexpr bg_color bg_white_bright()   { return {"107"}; }
 
-class ostream_color_scope final
+/// Outputs an ANSI foreground color code, and optionally an ANSI background color code, to the current
+/// output stream. The beginning color code is inserted into the stream at instantiation, and the ending
+/// color code is inserted when the instance goes out of scope.
+/// @example
+///     std::cout << "This is default colored... "
+///               << jg::ostream_color(jg::fg_green())
+///               << "but this is green... "
+///               << "and this too\n";           // <-- The jg::ostream_color instance goes out of scope
+///     std::cout << "Back to default color\n";
+class ostream_color final
 {
 public:
-    ostream_color_scope(std::ostream& stream, fg_color fg)
-        : m_stream{stream}
+    ostream_color(fg_color fg)
+        : m_fg{fg}
+    {}
+
+    ostream_color(fg_color fg, bg_color bg)
+        : m_fg{fg}
+        , m_bg{bg}
+    {}
+
+    friend std::ostream& operator<<(std::ostream& stream, const ostream_color& self)
     {
-        m_stream << "\033[" << fg.code << 'm';
+        self.m_stream = &stream;
+        stream << "\033[" << self.m_fg.code;
+
+        if (self.m_bg)
+            stream << ';' << self.m_bg->code;
+
+        return stream << 'm';
     }
 
-    ostream_color_scope(std::ostream& stream, fg_color fg, bg_color bg)
-        : m_stream{stream}
+    ~ostream_color()
     {
-        m_stream << "\033[" << fg.code << ';' << bg.code << 'm';
-    }
-
-    template <typename T>
-    friend std::ostream& operator<<(const ostream_color_scope& self, const T& t)
-    {
-        self.m_stream << t;
-        return self.m_stream;
-    }
-
-    ~ostream_color_scope()
-    {
-        m_stream << "\033[0m";
+        if (m_stream)
+            *m_stream << "\033[0m";
     }
 
 private:
-    std::ostream& m_stream;
+    mutable std::ostream* m_stream{};
+    fg_color m_fg;
+    std::optional<bg_color> m_bg;
 };
 
 } // namespace jg
