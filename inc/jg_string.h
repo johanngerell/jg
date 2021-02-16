@@ -70,6 +70,29 @@ std::string join(FwdIt first, FwdIt last, std::string_view delimiter)
     return joined;
 }
 
+template <typename FwdIt>
+struct ostream_joiner final
+{
+    FwdIt first{};
+    FwdIt last{};
+    std::string_view delimiter;
+
+    friend std::ostream& operator<<(std::ostream& stream, const ostream_joiner& self)
+    {
+        bool separate = false;
+        for(auto it = self.first; it != self.last; ++it)
+            stream << (separate ? self.delimiter : (separate = true, "")) << *it;
+        
+        return stream;
+    }
+};
+
+template <typename FwdIt>
+ostream_joiner<FwdIt> ostream_join(FwdIt first, FwdIt last, std::string_view delimiter)
+{
+    return {first, last, delimiter};
+}
+
 template <typename TConv, typename TRet = TConv>
 constexpr std::optional<TRet> from_chars(std::string_view string)
 {

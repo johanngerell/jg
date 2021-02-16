@@ -1,39 +1,11 @@
-#include <algorithm>
-#include <chrono>
 #include <iomanip>
-#include <iterator>
-#include <thread>
 #include <vector>
 #define JG_OS_IMPL
 #include <jg_os.h>
 #define JG_SIMPLE_LOGGER_IMPL
 #include <jg_simple_logger.h>
-#include <jg_stopwatch.h>
 #include <jg_benchmark.h>
 #include <jg_string.h>
-
-template <typename FwdIt>
-struct joiner final
-{
-    FwdIt first{};
-    FwdIt last{};
-    const char* separator{", "};
-
-    friend std::ostream& operator<<(std::ostream& stream, const joiner& self)
-    {
-        bool separate = false;
-        for(auto it = self.first; it != self.last; ++it)
-            stream << (separate ? self.separator : (separate = true, "")) << *it;
-        
-        return stream;
-    }
-};
-
-template <typename FwdIt>
-joiner<FwdIt> join(FwdIt first, FwdIt last, const char* separator = ", ")
-{
-    return {first, last, separator};
-}
 
 std::vector<jg::benchmark_result> benchmark()
 {
@@ -151,7 +123,7 @@ void output_result(const std::vector<jg::benchmark_result>& benchmarks)
                   << std::setw(columnN_width) << b.median
                   << std::setw(columnN_width) << b.std_deviation
                   << std::setw(columnN_width) << b.median_abs_deviation
-                  << "  [" << join(b.samples.begin(), b.samples.end()) << "]\n";
+                  << "  [" << jg::ostream_join(b.samples.begin(), b.samples.end(), ", ") << "]\n";
     }
 }
 
