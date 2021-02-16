@@ -8,6 +8,7 @@
 #include <iostream>
 #include <string>
 #include <sys/timeb.h>
+#include "jg_source_location.h"
 
 namespace jg {
 
@@ -57,6 +58,13 @@ inline std::ostream& operator<<(std::ostream& stream, log_level severity)
 {
     return stream << to_string(severity);
 }
+
+struct log_event final
+{
+    timestamp time{};
+    log_level level{};
+    source_location location{};
+};
 
 /// Checks if logging is enabled.
 bool log_enabled() noexcept;
@@ -150,6 +158,8 @@ ostream_line log_fatal_line();
 #define jg_log_warning_line() if (jg::log_enabled(jg::log_level::warning)) jg::log_info_warning()
 #define jg_log_error_line()   if (jg::log_enabled(jg::log_level::error))   jg::log_info_error()
 #define jg_log_fatal_line()   if (jg::log_enabled(jg::log_level::fatal))   jg::log_info_fatal()
+
+#define jg_new_log_event(level) jg::log_event{jg::timestamp::now(), level, jg_current_source_location()}
 
 #ifdef JG_SIMPLE_LOGGER_IMPL
 #undef JG_SIMPLE_LOGGER_IMPL

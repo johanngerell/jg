@@ -23,6 +23,7 @@ std::vector<jg::benchmark_result> benchmark()
 
     std::vector<jg::timestamp> timestamps(100);
     std::vector<std::string> strings(100);
+    std::vector<jg::log_event> events(100);
 
     return
     {
@@ -60,6 +61,11 @@ std::vector<jg::benchmark_result> benchmark()
         {
             for (size_t i = 0; i < 100; ++i)
                 strings[i] = to_string(timestamps[i]);
+        }),
+        jg::benchmark("jg_new_log_event", 10, 100, [&]
+        {
+            for (size_t i = 0; i < 100; ++i)
+                events[i] = jg_new_log_event(jg::log_level::info);
         })
     };   
 }
