@@ -1,7 +1,9 @@
 #pragma once
 
 #include <algorithm>
+#include <functional>
 #include <numeric>
+#include "jg_verify.h"
 
 namespace jg {
 
@@ -16,30 +18,30 @@ constexpr FwdIt find_if(FwdIt first, FwdIt last, Pred pred)
     return last;
 }
 
-// TODO: Make constexpr when jg requires C++20
+// TODO: Maybe make constexpr when jg requires C++20
 template <typename FwdIt>
 auto average(FwdIt first, FwdIt last)
 {
     using value_type = typename std::iterator_traits<FwdIt>::value_type;
     static_assert(std::is_arithmetic_v<value_type>);
+    jg::debug_verify(first != last);
 
-    return std::accumulate(first, last, static_cast<value_type>(0)) / (first != last ? std::distance(first, last) : 1);
+    return std::accumulate(first, last, value_type(0)) / std::distance(first, last);
 }
 
-// TODO: Make constexpr when jg requires C++20
+// TODO: Maybe make constexpr when jg requires C++20
 template <typename FwdIt>
 auto median(FwdIt first, FwdIt last)
 {
     using value_type = typename std::iterator_traits<FwdIt>::value_type;
     static_assert(std::is_arithmetic_v<value_type>);
+    jg::debug_verify(first != last);
 
     const size_t nth = std::distance(first, last) / 2;
     std::nth_element(first, first + nth, last);
     std::advance(first, nth);
 
-    return first != last ?
-           *first :
-           static_cast<value_type>(0);
+    return *first;
 }
 
 template <typename T>
@@ -48,32 +50,37 @@ constexpr T abs_diff(T first, T second)
     return first >= second ? first - second : second - first;
 }
 
-// TODO: Make constexpr when jg requires C++20
+template <typename T>
+constexpr T abs_diff_squared(T first, T second)
+{
+    return abs_diff(first, second) * abs_diff(first, second);
+}
+
+// TODO: Maybe make constexpr when jg requires C++20
 template <typename FwdIt, typename TAverage>
 auto standard_deviation(FwdIt first, FwdIt last, TAverage average)
 {
     using value_type = typename std::iterator_traits<FwdIt>::value_type;
     static_assert(std::is_arithmetic_v<value_type>);
+    jg::debug_verify(first != last);
 
-    return sqrt(std::accumulate(first, last, value_type(0),
-                                [average] (auto value) {
-                                    return abs_diff(value, average) * abs_diff(value, average);
-                                }) / (first != last ? std::distance(first, last) : 1));
+    auto diff_squared = std::bind(abs_diff_squared<value_type>, average, std::placeholders::_1);
+
+    return sqrt(std::accumulate(first, last, value_type(0), diff_squared) / std::distance(first, last));
 }
 
-// TODO: Make constexpr when jg requires C++20
+// TODO: Maybe make constexpr when jg requires C++20
 template <typename FwdIt, typename TMedian>
 auto median_absolute_deviation(FwdIt first, FwdIt last, TMedian median)
 {
     using value_type = typename std::iterator_traits<FwdIt>::value_type;
     static_assert(std::is_arithmetic_v<value_type>);
+    jg::debug_verify(first != last);
+
+    auto diff = std::bind(abs_diff<value_type>, median, std::placeholders::_1);
 
     std::vector<value_type> deviations;
-
-    std::transform(first, last, std::back_inserter(deviations),
-                   [median] (auto value) {
-                       return abs_diff(value, median);
-                   });
+    std::transform(first, last, std::back_inserter(deviations), diff);
 
     return jg::median(deviations.begin(), deviations.end());
 }

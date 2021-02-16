@@ -2,6 +2,7 @@
 
 #include "jg_algorithm.h"
 #include "jg_stopwatch.h"
+#include "jg_verify.h"
 
 namespace jg {
 
@@ -20,6 +21,9 @@ struct benchmark_result final
 template <typename Func>
 benchmark_result benchmark(std::string_view description, size_t sample_count, size_t func_internal_count, Func&& func)
 {
+    jg::verify(sample_count > 0);
+    jg::verify(func_internal_count > 0);
+
     benchmark_result result;
     result.description = description;
     result.samples.reserve(sample_count);
