@@ -56,12 +56,6 @@ std::vector<jg::benchmark_result> benchmark()
             for (size_t i = 0; i < 100; ++i)
                 timestamps[i] = jg::timestamp::now();
         }),
-        jg::benchmark("jg::timestamp_format", 10, 100, [&]
-        {
-            jg::timestamp_buffer buffer;
-            for (size_t i = 0; i < 100; ++i)
-                jg::timestamp_format(timestamps[i], buffer);
-        }),
         jg::benchmark("jg::to_string(timestamp)", 10, 100, [&]
         {
             for (size_t i = 0; i < 100; ++i)

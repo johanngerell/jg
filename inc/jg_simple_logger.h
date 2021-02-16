@@ -6,11 +6,8 @@
 #define JG_SIMPLE_LOGGER_INCLUDED
 
 #include <iostream>
-#include <sstream>
 #include <string>
 #include <sys/timeb.h>
-#include <cstdio>
-#include <cstdint>
 
 namespace jg {
 
@@ -28,17 +25,14 @@ struct timestamp final
     }
 };
 
-/// A utility buffer type of the minimum size needed to format a `timestamp`.
-using timestamp_buffer = char[26];
+/// Formats a `timestamp` into a 24-hour "hh:mm:ss.mmm " string. The formatted string should fit in the
+/// SSO buffer in all real implementations (clang, gcc, msvc, etc.), so no allocations should occur.
+std::string to_string(const timestamp& time);
 
-/// Formats a `timestamp` into a 24-hour "hh:mm:ss.mmm " string in a supplied buffer, without allocations.
-/// @return Pointer to the formatted timestamp in `buffer`, or `error_return` if formatting failed.
-const char* timestamp_format(const timestamp& time, timestamp_buffer& buffer, const char* error_return = nullptr);
-
-/// Formats a `timestamp` into a 24-hour "hh:mm:ss.mmm " string in a supplied buffer, without allocations.
-/// @note Fails if `size` is smaller than `sizeof(timestamp_buffer)`.
-/// @return Pointer to the formatted timestamp in `buffer`, or `error_return` if formatting failed.
-const char* timestamp_format(const timestamp& time, char* buffer, size_t size, const char* error_return = nullptr);
+inline std::ostream& operator<<(std::ostream& stream, const timestamp& timestamp)
+{
+    return stream << to_string(timestamp);
+}
 
 enum class log_level
 {
@@ -62,18 +56,6 @@ constexpr std::string_view to_string(log_level severity) noexcept
 inline std::ostream& operator<<(std::ostream& stream, log_level severity)
 {
     return stream << to_string(severity);
-}
-
-inline std::string to_string(const timestamp& timestamp)
-{
-    timestamp_buffer buffer;
-    return timestamp_format(timestamp, buffer);
-}
-
-inline std::ostream& operator<<(std::ostream& stream, const timestamp& timestamp)
-{
-    timestamp_buffer buffer;
-    return stream << timestamp_format(timestamp, buffer);
 }
 
 /// Checks if logging is enabled.
@@ -187,33 +169,38 @@ struct log_configuration final
 
 namespace jg {
 
-const char* timestamp_format(const timestamp& time, timestamp_buffer& buffer, const char* error_return)
+std::string to_string(const timestamp& time)
 {
-    return timestamp_format(time, buffer, sizeof(buffer), error_return);
-}
+    // The reserve() should be a no-op, since the formatted string should fit in the SSO buffer.
+    std::string result;
+    result.reserve(sizeof("HH:MM:SS.mmm"));
 
-const char* timestamp_format(const timestamp& time, char* buffer, size_t size, const char* error_return)
-{
-    // jg::os::ctime_safe formats a string exactly in the format "Www Mmm dd hh:mm:ss yyyy\n", with
-    // individual fixed-length fields. This string has length 25, which means that the target buffer
-    // must be at least size 26 to fit the null-terminator. We repurpose the " yyyy" part for the
-    // equally long ".mmm " milliseconds part, and replace the \n with a \0 to end the string there.
-    if (size < sizeof("Www Mmm dd hh:mm:ss yyyy\n"))
-        return error_return;
+    std::tm tm{};
+    jg::os::localtime_safe(time.seconds, tm);
 
-    auto format_ms = [&]
-    {
-        constexpr size_t ms_offset = sizeof("Www Mmm dd hh:mm:ss") - 1;
-        const     size_t ms_size   = size - ms_offset;
-        constexpr size_t ms_length = sizeof(".mmm ") - 1;
-        return snprintf(buffer + ms_offset, ms_size, ".%03hu ", time.milliseconds) == ms_length;
-    };
+    if (tm.tm_hour < 10)
+        result.append(1, '0');
+    
+    result.append(std::to_string(tm.tm_hour)).append(1, ':');
 
-    constexpr size_t time_offset = sizeof("Www Mmm dd ") - 1;
+    if (tm.tm_min < 10)
+        result.append(1, '0');
+    
+    result.append(std::to_string(tm.tm_min)).append(1, ':');
 
-    return jg::os::ctime_safe(buffer, size, time.seconds) && format_ms() ?
-           buffer + time_offset :
-           error_return;
+    if (tm.tm_sec < 10)
+        result.append(1, '0');
+    
+    result.append(std::to_string(tm.tm_sec)).append(1, '.');
+
+    if (time.milliseconds < 10)
+        result.append(2, '0');
+    else if (time.milliseconds < 100)
+        result.append(1, '0');
+    
+    result.append(std::to_string(time.milliseconds));
+
+    return result;
 }
 
 bool log_enabled() noexcept
