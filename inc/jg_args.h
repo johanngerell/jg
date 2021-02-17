@@ -22,10 +22,9 @@ public:
     {}
 
     using iterator = char**;
-    using const_iterator = const iterator;
 
-    constexpr const_iterator begin() const { return m_first; }
-    constexpr const_iterator end() const { return m_last; }
+    constexpr iterator begin() const { return m_first; }
+    constexpr iterator end() const { return m_last; }
 
 private:
     iterator m_first{};

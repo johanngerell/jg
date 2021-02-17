@@ -51,6 +51,7 @@ constexpr std::string_view to_string(log_level severity) noexcept
         case log_level::warning: return "[warning] ";
         case log_level::error:   return "[error] ";
         case log_level::fatal:   return "[fatal] ";
+        default:                 return "[<unknown>] ";
     }
 }
 

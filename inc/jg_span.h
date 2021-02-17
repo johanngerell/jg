@@ -12,7 +12,7 @@ public:
     constexpr span() = default;
 
     using iterator = T*;
-    using const_iterator = const iterator;
+    using const_iterator = const T*;
 
     constexpr span(iterator first, iterator last) : m_first{first} , m_last{last} {}
     constexpr span(T* data, size_t size) : span{verified(data), data + size} {}

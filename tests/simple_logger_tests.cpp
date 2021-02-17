@@ -20,9 +20,13 @@ jg::timestamp make_timestamp(size_t hours, size_t minutes, size_t seconds, size_
     if (milliseconds > 999) throw std::range_error("milliseconds > 999");
 
     std::stringstream ss;
-    ss << hours << ':' << minutes << ':' << seconds;
+    ss << std::setfill('0')
+       << std::setw(2) << hours << ':'
+       << std::setw(2) << minutes << ':'
+       << std::setw(2) << seconds;
+
     std::tm tm{};
-    ss >> std::get_time(jg::os::localtime_safe(time(nullptr), tm), "%T");
+    ss >> std::get_time(jg::os::localtime_safe(time(nullptr), tm), "%H:%M:%S");
 
     return {mktime(&tm), static_cast<decltype(jg::timestamp::milliseconds)>(milliseconds)};
 }
