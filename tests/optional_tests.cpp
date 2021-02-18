@@ -42,11 +42,11 @@ void jg_test_assert_accessors(const jg::optional<my_type>& optional, int i, bool
     jg_test_assert((*optional).s == s);
 }
 
-struct optional_tests final : jg::test_suites_base<optional_tests>
+struct optional_tests final
 {
-    auto operator()()
+    optional_tests()
     {
-        return jg::test_suites { "optional", {
+        jg::test_add(jg::test_suites { "optional", {
             jg::test_suite { "construction", {
                 jg::test_case { "Overhead is one bool + alignment padding", [] {
                     jg_test_assert(sizeof(jg::optional<my_type>) - sizeof(my_type) - sizeof(bool) < sizeof(void*));
@@ -159,7 +159,7 @@ struct optional_tests final : jg::test_suites_base<optional_tests>
                     jg_test_assert_accessors(optional, 4711, true, "foobar");
                 }}
             }}
-        }};
+        }});
     }
 } _;
 

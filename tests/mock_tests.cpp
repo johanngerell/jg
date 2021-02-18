@@ -31,14 +31,13 @@ bool using_test_abstract_class(test_abstract_class& t, char c, bool b, int i, co
     return t.function1(c, b, i, s);
 }
 
-struct mock_tests final : jg::test_suites_base<mock_tests>
+struct mock_tests final
 {
-
-    auto operator()()
+    mock_tests()
     {
         using namespace std::string_literals;
 
-        return jg::test_suites { "mock", {
+        jg::test_add(jg::test_suites { "mock", {
             jg::test_suite { "free functions", {
                 jg::test_case { "non-void called without setting result causes assertion", [] {
                     mock_assert_.reset(); // only needed for free function mocks
@@ -177,7 +176,7 @@ struct mock_tests final : jg::test_suites_base<mock_tests>
                     jg_test_assert(mock.function1_.prototype() == "bool function1(char, bool, int, const char*)");
                 }}
             }}
-        }};
+        }});
     }
 } _;
 

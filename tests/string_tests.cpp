@@ -3,11 +3,11 @@
 
 namespace {
 
-struct string_tests final : jg::test_suites_base<string_tests>
+struct string_tests final
 {
-    auto operator()()
+    string_tests()
     {
-        return jg::test_suites { "string", {
+        jg::test_add(jg::test_suites { "string", {
             jg::test_suite { "split / positive", {
                 jg::test_case { "One expected token - empty string is an empty but valid token", [] {
                     const auto tokens = jg::split<1>("", ',');
@@ -99,7 +99,7 @@ struct string_tests final : jg::test_suites_base<string_tests>
                     jg_test_assert(!tokens.has_value());
                 }}
             }}
-        }};
+        }});
     }
 } _;
 

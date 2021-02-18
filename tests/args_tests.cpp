@@ -4,13 +4,13 @@
 
 namespace {
 
-struct args_tests final : jg::test_suites_base<args_tests>
+struct args_tests final
 {
-    auto operator()()
+    args_tests()
     {
         using namespace test_helpers;
 
-        return jg::test_suites { "args", {
+        jg::test_add(jg::test_suites { "args", {
             jg::test_suite { "test_helpers::cmdline", {
                 jg::test_case { "default constructed => expected empty traits", [] {
                     cmdline empty{};
@@ -121,7 +121,7 @@ struct args_tests final : jg::test_suites_base<args_tests>
                     jg_test_assert(!jg::args_key_value(cmdline{"--foo=abc", "--bar=def", "--baz=ghi"}.args(), "--acme="));
                 }}
             }}
-        }};
+        }});
     }
 } _;
 

@@ -44,19 +44,6 @@ struct test_suites final
 void test_add(jg::test_suites&& suites);
 int test_run();
 
-template <typename TSuitesImpl>
-class test_suites_base
-{
-protected:
-    test_suites_base()
-    {
-        test_add((*static_cast<TSuitesImpl*>(this))());
-    }
-
-    test_suites_base(const test_suites_base&) = delete;
-    test_suites_base& operator=(const test_suites_base&) = delete;
-};
-
 } // namespace jg
 
 namespace jg::detail {
@@ -66,6 +53,7 @@ void test_assert_epilog(const char* expr_string, const char* file, int line);
 
 inline void test_assert_impl(bool expr_value, const char* expr_string, const char* file, int line)
 {
+    // TODO: Handle exceptions as failures.
     jg::detail::test_assert_prolog();
     if (expr_value) return;
     jg::detail::test_assert_epilog(expr_string, file, line);
