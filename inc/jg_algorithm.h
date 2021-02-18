@@ -1,7 +1,6 @@
 #pragma once
 
 #include <algorithm>
-#include <functional>
 #include <numeric>
 #include "jg_verify.h"
 
@@ -64,7 +63,9 @@ auto standard_deviation(FwdIt first, FwdIt last, TAverage average)
     static_assert(std::is_arithmetic_v<value_type>);
     jg::debug_verify(first != last);
 
-    auto diff_squared = std::bind(abs_diff_squared<value_type>, average, std::placeholders::_1);
+    auto diff_squared = [average] (auto ack, auto value) {
+        return ack + abs_diff_squared(average, value);
+    };
 
     return sqrt(std::accumulate(first, last, value_type(0), diff_squared) / std::distance(first, last));
 }
@@ -77,7 +78,9 @@ auto median_absolute_deviation(FwdIt first, FwdIt last, TMedian median)
     static_assert(std::is_arithmetic_v<value_type>);
     jg::debug_verify(first != last);
 
-    auto diff = std::bind(abs_diff<value_type>, median, std::placeholders::_1);
+    auto diff = [median] (auto value) {
+        return abs_diff(median, value);
+    };
 
     std::vector<value_type> deviations;
     std::transform(first, last, std::back_inserter(deviations), diff);

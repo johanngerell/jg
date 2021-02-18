@@ -37,7 +37,7 @@ benchmark_result benchmark(std::string_view description, size_t sample_count, si
 
     result.average              = jg::average(result.samples.begin(), result.samples.end());
     result.median               = jg::median(result.samples.begin(), result.samples.end());
-    result.std_deviation        = jg::median_absolute_deviation(result.samples.begin(), result.samples.end(), result.average);
+    result.std_deviation        = jg::standard_deviation(result.samples.begin(), result.samples.end(), result.average);
     result.median_abs_deviation = jg::median_absolute_deviation(result.samples.begin(), result.samples.end(), result.median);
 
     return result;
