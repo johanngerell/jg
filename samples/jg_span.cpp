@@ -1,5 +1,5 @@
 #include <iostream>
-#include <jg_string.h>
+#include <jg_span.h>
 
 struct foo final
 {
@@ -13,12 +13,12 @@ int main()
 
     const int ints[] { 1, 2, 3, 4, 5 };
 
-    for (const auto i : jg::make_span(ints)) 
+    for (const auto i : jg::span(ints)) 
         std::cout << i << "\n";
 
     const foo foos[] { { "true=", true }, { "false=", false } };
 
-    for (const auto& f : jg::make_span(foos)) 
+    for (const auto& f : jg::span(foos)) 
         std::cout << std::boolalpha << f.s << f.b << "\n";
 
     std::cout << "\n...done\n";
