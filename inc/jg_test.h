@@ -35,6 +35,7 @@ struct test_suite final
     size_t case_fail_count{};
 };
 
+// TODO: Rename to test_suite_set?
 struct test_suites final
 {
     std::string description;
@@ -43,6 +44,38 @@ struct test_suites final
 
 void test_add(jg::test_suites&& suites);
 int test_run();
+
+/// A `test_adder` instance can be used for "auto discovery" of test suites spread over cpp files when
+/// one cpp file defines JG_TEST_MAIN. Instantiate the `test_adder` at global scope and it will add the
+/// test suites in its constructor, before `main()` is called. The `main()` that is generated when
+/// JG_TEST_MAIN is defined will execute all added test suites.
+/// @example
+///     // flubber_tests.cpp
+///     #include <jg_test.h>
+///     #include "flubber.h"
+/// 
+///     jg::test_adder flubber_tests { "flubber test suites", {
+///         jg::test_suite { "some flubber functionality test suite", {
+///             jg::test_case { "flubber me this", [] {
+///                 jg_test_assert(...);
+///                 ...
+///             }},
+///             ...
+///         }},
+///         ...
+///     }};
+///
+///     // main.cpp
+///     #define JG_TEST_MAIN
+///     #define JG_TEST_IMPL
+///     #include <jg_test.h>
+struct test_adder final
+{
+    test_adder(std::string description, std::vector<test_suite>&& suites)
+    {
+        test_add({std::move(description), std::move(suites)});
+    }
+};
 
 } // namespace jg
 
@@ -213,6 +246,7 @@ void test_assert_epilog(const char* expr_string, const char* file, int line)
 #endif // #ifdef JG_TEST_IMPL
 #endif // #ifndef JG_TEST_INCLUDED
 
+// TODO: Is a flag similar to JG_TEST_INCLUDED needed?
 #ifdef JG_TEST_MAIN
 int main()
 {
