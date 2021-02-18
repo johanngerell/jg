@@ -14,7 +14,7 @@ struct my_type final
 };
 
 template <typename Op>
-void REQUIRE_ACCESSOR_ASSERT(Op op)
+void jg_test_assert_accesso_fail(Op op)
 {
     mock_assert_.reset();
     op();
@@ -22,14 +22,14 @@ void REQUIRE_ACCESSOR_ASSERT(Op op)
     jg_test_assert(mock_assert_.param<1>() == false);
 }
 
-void REQUIRE_ACCESSORS_ASSERT(const jg::optional<my_type>& optional)
+void jg_test_assert_accessors_fail(const jg::optional<my_type>& optional)
 {
-    REQUIRE_ACCESSOR_ASSERT([&] { (void)optional.value(); });
-    REQUIRE_ACCESSOR_ASSERT([&] { (void)optional->i; });
-    REQUIRE_ACCESSOR_ASSERT([&] { (void)(*optional).i; });
+    jg_test_assert_accesso_fail([&] { (void)optional.value(); });
+    jg_test_assert_accesso_fail([&] { (void)optional->i; });
+    jg_test_assert_accesso_fail([&] { (void)(*optional).i; });
 }
 
-void REQUIRE_ACCESSORS(const jg::optional<my_type>& optional, int i, bool b, const std::string& s)
+void jg_test_assert_accessors(const jg::optional<my_type>& optional, int i, bool b, const std::string& s)
 {
     jg_test_assert(optional->i == i);
     jg_test_assert(optional->b == b);
@@ -56,14 +56,14 @@ struct optional_tests final : jg::test_suites_base<optional_tests>
 
                     jg_test_assert(!optional);
                     jg_test_assert(!optional.has_value());
-                    REQUIRE_ACCESSORS_ASSERT(optional);
+                    jg_test_assert_accessors_fail(optional);
                 }},
                 jg::test_case { "Constructed with rvalue has value - alt 1", [] {
                     jg::optional<my_type> optional{my_type{4711, true, "foobar"}};
                     
                     jg_test_assert(!!optional);
                     jg_test_assert(optional.has_value());
-                    REQUIRE_ACCESSORS(optional, 4711, true, "foobar");
+                    jg_test_assert_accessors(optional, 4711, true, "foobar");
                 }},
                 jg::test_case { "Constructed with rvalue has value - alt 2", [] {
                     my_type mt{4711, true, "foobar"};
@@ -71,7 +71,7 @@ struct optional_tests final : jg::test_suites_base<optional_tests>
 
                     jg_test_assert(!!optional);
                     jg_test_assert(optional.has_value());
-                    REQUIRE_ACCESSORS(optional, 4711, true, "foobar");
+                    jg_test_assert_accessors(optional, 4711, true, "foobar");
                 }},
                 jg::test_case { "Constructed with lvalue has value", [] {
                     const my_type mt{4711, true, "foobar"};
@@ -79,14 +79,14 @@ struct optional_tests final : jg::test_suites_base<optional_tests>
 
                     jg_test_assert(!!optional);
                     jg_test_assert(optional.has_value());
-                    REQUIRE_ACCESSORS(optional, 4711, true, "foobar");
+                    jg_test_assert_accessors(optional, 4711, true, "foobar");
                 }},
                 jg::test_case { "Constructed with rvalue optional has value - alt 1", [] {
                     jg::optional<my_type> optional{jg::optional<my_type>{my_type{4711, true, "foobar"}}};
                     
                     jg_test_assert(!!optional);
                     jg_test_assert(optional.has_value());
-                    REQUIRE_ACCESSORS(optional, 4711, true, "foobar");
+                    jg_test_assert_accessors(optional, 4711, true, "foobar");
                 }},
                 jg::test_case { "Constructed with rvalue optional has value - alt 2", [] {
                     jg::optional<my_type> other{my_type{4711, true, "foobar"}};
@@ -94,7 +94,7 @@ struct optional_tests final : jg::test_suites_base<optional_tests>
 
                     jg_test_assert(!!optional);
                     jg_test_assert(optional.has_value());
-                    REQUIRE_ACCESSORS(optional, 4711, true, "foobar");
+                    jg_test_assert_accessors(optional, 4711, true, "foobar");
                 }},
                 jg::test_case { "Constructed with lvalue optional has value", [] {
                     const jg::optional<my_type> other{my_type{4711, true, "foobar"}};
@@ -102,7 +102,7 @@ struct optional_tests final : jg::test_suites_base<optional_tests>
 
                     jg_test_assert(!!optional);
                     jg_test_assert(optional.has_value());
-                    REQUIRE_ACCESSORS(optional, 4711, true, "foobar");
+                    jg_test_assert_accessors(optional, 4711, true, "foobar");
                 }}
             }},
             jg::test_suite { "assignment", {
@@ -112,7 +112,7 @@ struct optional_tests final : jg::test_suites_base<optional_tests>
                     
                     jg_test_assert(!!optional);
                     jg_test_assert(optional.has_value());
-                    REQUIRE_ACCESSORS(optional, 4711, true, "foobar");
+                    jg_test_assert_accessors(optional, 4711, true, "foobar");
                 }},
                 jg::test_case { "Assigned with rvalue optional has value - alt 2", [] {
                     jg::optional<my_type> other{my_type{4711, true, "foobar"}};
@@ -121,7 +121,7 @@ struct optional_tests final : jg::test_suites_base<optional_tests>
 
                     jg_test_assert(!!optional);
                     jg_test_assert(optional.has_value());
-                    REQUIRE_ACCESSORS(optional, 4711, true, "foobar");
+                    jg_test_assert_accessors(optional, 4711, true, "foobar");
                 }},
                 jg::test_case { "Assigned with lvalue optional has value", [] {
                     const jg::optional<my_type> other{my_type{4711, true, "foobar"}};
@@ -130,7 +130,7 @@ struct optional_tests final : jg::test_suites_base<optional_tests>
 
                     jg_test_assert(!!optional);
                     jg_test_assert(optional.has_value());
-                    REQUIRE_ACCESSORS(optional, 4711, true, "foobar");
+                    jg_test_assert_accessors(optional, 4711, true, "foobar");
                 }},
                 jg::test_case { "Assigned with rvalue has value - alt 1", [] {
                     jg::optional<my_type> optional{my_type{4712, false, "bar"}};
@@ -138,7 +138,7 @@ struct optional_tests final : jg::test_suites_base<optional_tests>
                     
                     jg_test_assert(!!optional);
                     jg_test_assert(optional.has_value());
-                    REQUIRE_ACCESSORS(optional, 4711, true, "foobar");
+                    jg_test_assert_accessors(optional, 4711, true, "foobar");
                 }},
                 jg::test_case { "Assigned with rvalue has value - alt 2", [] {
                     my_type mt{4711, true, "foobar"};
@@ -147,7 +147,7 @@ struct optional_tests final : jg::test_suites_base<optional_tests>
 
                     jg_test_assert(!!optional);
                     jg_test_assert(optional.has_value());
-                    REQUIRE_ACCESSORS(optional, 4711, true, "foobar");
+                    jg_test_assert_accessors(optional, 4711, true, "foobar");
                 }},
                 jg::test_case { "Assigned with lvalue has value", [] {
                     const my_type mt{4711, true, "foobar"};
@@ -156,7 +156,7 @@ struct optional_tests final : jg::test_suites_base<optional_tests>
 
                     jg_test_assert(!!optional);
                     jg_test_assert(optional.has_value());
-                    REQUIRE_ACCESSORS(optional, 4711, true, "foobar");
+                    jg_test_assert_accessors(optional, 4711, true, "foobar");
                 }}
             }}
         }};

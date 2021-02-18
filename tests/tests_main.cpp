@@ -11,7 +11,7 @@
 // The specific name `mock_assert` is defined by JG_VERIFY_ASSERTION in CMakeLists.txt.
 JG_MOCK(,,, void, mock_assert, bool);
 
-// For testing mocking free functions work. The corresponding JG_MOCK_REF is in mock_tests.cpp.
+// For testing that mocking of free functions work. The corresponding JG_MOCK_REF is in mock_tests.cpp.
 JG_MOCK(,,, bool, test_free_function, char, bool, int, const char*);
 
 #define JG_TEST_MAIN
