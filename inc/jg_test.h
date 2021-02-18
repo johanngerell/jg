@@ -123,6 +123,8 @@ void test_assert_exception_impl(TExprFunc&& expr_func, const char* expr_string, 
 #ifdef JG_TEST_IMPL
 #undef JG_TEST_IMPL
 
+#include "jg_stopwatch.h"
+
 namespace {
 
 struct test_metrics final
@@ -162,6 +164,7 @@ int test_run()
 {
     test_state state{};
     current_state = &state;
+    stopwatch sw;
 
     for (auto& suites : super_suites)
     {
@@ -198,7 +201,8 @@ int test_run()
 
         std::cout << state.metrics.assertion_count  << (state.metrics.assertion_count == 1 ? " test assertion" : " test assertions") << '\n'
                   << state.metrics.case_count       << (state.metrics.case_count == 1 ? " test case" : " test cases") << '\n'
-                  << state.metrics.suite_count      << (state.metrics.suite_count == 1 ? " test suite" : " test suites") << '\n';
+                  << state.metrics.suite_count      << (state.metrics.suite_count == 1 ? " test suite" : " test suites") << '\n'
+                  << sw.us()                        << " microseconds" << '\n';
     }
 
     return static_cast<int>(state.metrics.assertion_fail_count);
