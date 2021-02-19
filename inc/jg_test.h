@@ -10,6 +10,7 @@
 #include <vector>
 #include "jg_state_scope.h"
 #include "jg_ostream_color.h"
+#include "jg_source_location.h"
 
 /// @file Testing facilities, like test assertions, test cases, test suites, test runner, etc.
 /// @note One translation unit *must* define JG_TEST_IMPL before including this header. This is typically
@@ -82,24 +83,24 @@ struct test_adder final
 namespace jg::detail {
 
 void test_assert_prolog();
-void test_assert_epilog(const char* expr_string, const char* file, int line);
+void test_assert_epilog(const char* expr_string, const source_location& location);
 
-inline void test_assert_impl(bool expr_value, const char* expr_string, const char* file, int line)
+inline void test_assert_impl(bool expr_value, const char* expr_string, const source_location& location)
 {
     // TODO: Handle exceptions as failures.
     jg::detail::test_assert_prolog();
     if (expr_value) return;
-    jg::detail::test_assert_epilog(expr_string, file, line);
+    jg::detail::test_assert_epilog(expr_string, location);
 }
 
 template <typename TException, typename TExprFunc>
-void test_assert_exception_impl(TExprFunc&& expr_func, const char* expr_string, const char* file, int line)
+void test_assert_exception_impl(TExprFunc&& expr_func, const char* expr_string, const source_location& location)
 {
     jg::detail::test_assert_prolog();
     try { expr_func(); }
     catch(const TException&) { return; }
     catch(...) {}
-    jg::detail::test_assert_epilog(expr_string, file, line);
+    jg::detail::test_assert_epilog(expr_string, location);
 }
 
 } // namespace jg::detail
@@ -108,13 +109,13 @@ void test_assert_exception_impl(TExprFunc&& expr_func, const char* expr_string, 
 /// bunch of assertions) and in test cases inside suites. It will not exit the test program, only output
 /// error information and propagate metrics back to `test_run()`, if that's used.
 #define jg_test_assert(expr) \
-    jg::detail::test_assert_impl((expr), #expr, __FILE__,  __LINE__)
+    jg::detail::test_assert_impl((expr), #expr, jg_current_source_location())
 
 /// The `jg_test_assert_exception` macro can be used both on its own in simple test files (like `main.cpp`
 /// with a bunch of assertions) and in test cases inside suites. It will not exit the test program, only
 /// output error information and propagate metrics back to `test_run()`, if that's used.
 #define jg_test_assert_exception(expr, exception_type) \
-    jg::detail::test_assert_exception_impl<exception_type>([&] { (expr); }, #expr, __FILE__,  __LINE__)
+    jg::detail::test_assert_exception_impl<exception_type>([&] { (expr); }, #expr, jg_current_source_location())
 
 #ifdef JG_TEST_ENABLE_SHORT_NAME
     #define jg_assert jg_test_assert
@@ -218,7 +219,7 @@ void test_assert_prolog()
         current_state->metrics.assertion_count++;
 }
 
-void test_assert_epilog(const char* expr_string, const char* file, int line)
+void test_assert_epilog(const char* expr_string, const source_location& location)
 {
     if (current_state)
     {
@@ -242,7 +243,7 @@ void test_assert_epilog(const char* expr_string, const char* file, int line)
     std::cout << jg::ostream_color(jg::fg_red_bright()) << (current_state ? "      " : "") << "Failed test assertion ";
     std::cout << jg::ostream_color(jg::fg_cyan_bright()) << '\'' << expr_string << '\'';
     std::cout << " at ";
-    std::cout << jg::ostream_color(jg::fg_magenta_bright()) << file << ':' << line << '\n';
+    std::cout << jg::ostream_color(jg::fg_magenta_bright()) << location.file_name() << ':' << location.line() << '\n';
 }
 
 } // namespace jg::detail
