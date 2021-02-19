@@ -70,6 +70,18 @@
             "MIMode": "lldb"
         },
         {
+            "name": "(Mac) samples - jg_stacktrace - Debug",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/mac/debug/jg_stacktrace",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "lldb"
+        },
+        {
             "name": "(Linux) samples - jg_stacktrace - Debug",
             "type": "cppdbg",
             "request": "launch",

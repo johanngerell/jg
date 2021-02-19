@@ -137,6 +137,7 @@ inline std::vector<stack_frame> stack_trace::capture() const
 
 #else
 
+#ifdef __linux__
     auto getexepath = [] () -> std::string
     {
         char result[PATH_MAX];
@@ -174,16 +175,19 @@ inline std::vector<stack_frame> stack_trace::capture() const
         return result;
     };
 
+    std::regex re("\\[(.+)\\]");
+    auto exec_path = getexepath();
+#endif
+
     void* bt[1024];
     int bt_size = backtrace(bt, 1024);
     char** bt_syms = backtrace_symbols(bt, bt_size);
 
-    std::regex re("\\[(.+)\\]");
-    auto exec_path = getexepath();
-
     for (int i = 1; i < bt_size; i++)
     {
         std::string sym = bt_syms[i];
+
+#ifdef __linux__
         std::smatch ms;
         
         if (std::regex_search(sym, ms, re))
@@ -195,9 +199,14 @@ inline std::vector<stack_frame> stack_trace::capture() const
             auto r2 = std::regex_replace(r, re2, "");
             std::cout << r2 << std::endl;
         }
-    }
-    free(bt_syms);
+#endif
 
+        jg::stack_frame frame{};
+        frame.function = sym;
+        stack_frames.push_back(std::move(frame));
+    }
+
+    free(bt_syms);
 #endif
 
     return stack_frames;
