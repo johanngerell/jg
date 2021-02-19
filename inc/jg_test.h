@@ -22,11 +22,24 @@
 
 namespace jg {
 
+struct test_assertion final
+{
+    std::string expression;
+    source_location location;
+    bool succeeded{};
+};
+
 struct test_case final
 {
     std::string description;
     std::function<void()> func;
+    std::vector<test_assertion> assertions; // The implementation will add assertion information here.
     size_t assertion_fail_count{};
+
+    test_case(std::string description, std::function<void()> func)
+        : description{std::move(description)}
+        , func{std::move(func)}
+    {}
 };
 
 struct test_suite final
@@ -81,13 +94,13 @@ struct test_adder final
 
 namespace jg::detail {
 
-void test_assert_prolog();
+void test_assert_prolog(const char* expr_string, const source_location& location);
 void test_assert_epilog(const char* expr_string, const source_location& location);
 
 inline void test_assert_impl(bool expr_value, const char* expr_string, const source_location& location)
 {
     // TODO: Handle exceptions as failures.
-    jg::detail::test_assert_prolog();
+    jg::detail::test_assert_prolog(expr_string, location);
     if (expr_value) return;
     jg::detail::test_assert_epilog(expr_string, location);
 }
@@ -95,7 +108,7 @@ inline void test_assert_impl(bool expr_value, const char* expr_string, const sou
 template <typename TException, typename TExprFunc>
 void test_assert_exception_impl(TExprFunc&& expr_func, const char* expr_string, const source_location& location)
 {
-    jg::detail::test_assert_prolog();
+    jg::detail::test_assert_prolog(expr_string, location);
     try { expr_func(); }
     catch(const TException&) { return; }
     catch(...) {}
@@ -212,10 +225,13 @@ int test_run()
 
 namespace jg::detail {
 
-void test_assert_prolog()
+void test_assert_prolog(const char* expr_string, const source_location& location)
 {
     if (current_state)
+    {
         current_state->metrics.assertion_count++;
+        current_state->current_case->assertions.push_back({expr_string, location, true});
+    }
 }
 
 void test_assert_epilog(const char* expr_string, const source_location& location)
@@ -235,10 +251,11 @@ void test_assert_epilog(const char* expr_string, const source_location& location
             std::cout << jg::ostream_color(jg::fg_cyan_bright()) << '\'' << current_state->current_case->description << "'\n";
         }
 
+        current_state->current_case->assertions.back().succeeded = false;
         current_state->current_case->assertion_fail_count++;
         current_state->metrics.assertion_fail_count++;
     }
-
+    
     std::cout << jg::ostream_color(jg::fg_red_bright()) << (current_state ? "      " : "") << "Failed test assertion ";
     std::cout << jg::ostream_color(jg::fg_cyan_bright()) << '\'' << expr_string << '\'';
     std::cout << " at ";
