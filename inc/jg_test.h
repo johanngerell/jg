@@ -12,7 +12,7 @@
 #include "jg_ostream_color.h"
 #include "jg_source_location.h"
 
-/// @file Testing facilities, like test assertions, test cases, test suites, test runner, etc.
+/// @file Testing facilities, like assertions, test cases, test suites, test suite sets, test runner, etc.
 /// @note One translation unit *must* define JG_TEST_IMPL before including this header. This is typically
 /// done by the main cpp file. The translation unit that defines JG_TEST_IMPL is the one where the test
 /// implementation will be defined and compiled. If no translation unit defines JG_TEST_IMPL, then there
@@ -32,18 +32,17 @@ struct test_case final
 struct test_suite final
 {
     std::string description;
-    std::vector<test_case> items;
+    std::vector<test_case> cases;
     size_t case_fail_count{};
 };
 
-// TODO: Rename to test_suite_set?
-struct test_suites final
+struct test_suite_set final
 {
     std::string description;
-    std::vector<test_suite> items;
+    std::vector<test_suite> suites;
 };
 
-void test_add(jg::test_suites&& suites);
+void test_add(jg::test_suite_set&& set);
 int test_run();
 
 /// A `test_adder` instance can be used for "auto discovery" of test suites spread over cpp files when
@@ -139,10 +138,10 @@ struct test_metrics final
 
 struct test_state final
 {
-    test_metrics     metrics;
-    jg::test_case*   current_case{};
-    jg::test_suite*  current_suite{};
-    jg::test_suites* current_suites{};
+    test_metrics        metrics;
+    jg::test_case*      current_case{};
+    jg::test_suite*     current_suite{};
+    jg::test_suite_set* current_set{};
 };
 
 // Allowing the current test_state to be unset makes it possible to use the jg_test_assert macro
@@ -150,15 +149,15 @@ struct test_state final
 // test_run, but that might grow to more complete suites.
 test_state* current_state{};
 
-std::vector<jg::test_suites> super_suites;
+std::vector<jg::test_suite_set> suite_sets;
 
 }
 
 namespace jg {
 
-void test_add(jg::test_suites&& suites)
+void test_add(jg::test_suite_set&& set)
 {
-    super_suites.push_back(std::move(suites));
+    suite_sets.push_back(std::move(set));
 }
 
 int test_run()
@@ -167,20 +166,20 @@ int test_run()
     current_state = &state;
     stopwatch sw;
 
-    for (auto& suites : super_suites)
+    for (auto& set : suite_sets)
     {
-        std::cout << "Running test super suite "
-                  << jg::ostream_color(jg::fg_cyan_bright()) << '\'' << suites.description << "'\n";
+        std::cout << "Running test suite set "
+                  << jg::ostream_color(jg::fg_cyan_bright()) << '\'' << set.description << "'\n";
 
-        state.metrics.suite_count += suites.items.size();
-        state_scope_value test_suites_scope(state.current_suites, &suites, nullptr);
+        state.metrics.suite_count += set.suites.size();
+        state_scope_value test_set_scope(state.current_set, &set, nullptr);
 
-        for (auto& suite : suites.items)
+        for (auto& suite : set.suites)
         {
-            state.metrics.case_count += suite.items.size();
+            state.metrics.case_count += suite.cases.size();
             state_scope_value test_suite_scope(state.current_suite, &suite, nullptr);
 
-            for (auto& test : suite.items)
+            for (auto& test : suite.cases)
             {
                 state_scope_value test_case_scope(state.current_case, &test, nullptr);
                 test.func();
