@@ -11,16 +11,6 @@
     #include <windows.h>
     #include <dbghelp.h>
     #pragma comment(lib, "dbghelp.lib")
-#else
-    #include <regex>
-    #include <memory>
-    #include <execinfo.h>
-    #include <unistd.h>
-    #if defined(__APPLE__)
-        #include <sys/syslimits.h>
-    #elif defined(__linux__) 
-        #include <linux/limits.h> // PATH_MAX
-    #endif
 #endif
 
 namespace jg {
@@ -80,7 +70,7 @@ inline stack_trace& stack_trace::take(size_t count)
 inline std::vector<stack_frame> stack_trace::capture() const
 {
     std::vector<stack_frame> stack_frames;
-    
+
 #ifdef _WIN32
 
     std::vector<void*> back_trace(m_take);
@@ -135,78 +125,7 @@ inline std::vector<stack_frame> stack_trace::capture() const
         }
     }
 
-#else
 
-#ifdef __linux__
-    auto getexepath = [] () -> std::string
-    {
-        char result[PATH_MAX];
-        const ssize_t length = readlink("/proc/self/exe", result, PATH_MAX);
-        return {result, length > 0 ? static_cast<size_t>(length) : 0};
-    };
-
-    struct pipe_deleter final
-    {
-        void operator()(FILE* stream) const
-        {
-            pclose(stream);
-        }
-    };
-
-    using pipe_ptr = std::unique_ptr<FILE, pipe_deleter>;
-
-    auto make_pipe = [] (const char* command, const char* type) -> pipe_ptr
-    {
-        return pipe_ptr{popen(command, type)};
-    };
-
-    auto sh = [&] (const std::string& cmd) -> std::string
-    {
-        char buffer[128];
-        auto pipe = make_pipe(cmd.c_str(), "r");
-        // if (!pipe)
-        //     throw std::runtime_error("popen() failed!");
-        
-        std::string result;
-        while (!feof(pipe.get()))
-            if (fgets(buffer, 128, pipe.get()))
-                result += buffer;
-
-        return result;
-    };
-
-    std::regex re("\\[(.+)\\]");
-    auto exec_path = getexepath();
-#endif
-
-    void* bt[1024];
-    int bt_size = backtrace(bt, 1024);
-    char** bt_syms = backtrace_symbols(bt, bt_size);
-
-    for (int i = 1; i < bt_size; i++)
-    {
-        std::string sym = bt_syms[i];
-
-#ifdef __linux__
-        std::smatch ms;
-        
-        if (std::regex_search(sym, ms, re))
-        {
-            std::string addr = ms[1];
-            std::string cmd = "addr2line -e " + exec_path + " -f -C " + addr;
-            auto r = sh(cmd);
-            std::regex re2("\\n$");
-            auto r2 = std::regex_replace(r, re2, "");
-            std::cout << r2 << std::endl;
-        }
-#endif
-
-        jg::stack_frame frame{};
-        frame.function = sym;
-        stack_frames.push_back(std::move(frame));
-    }
-
-    free(bt_syms);
 #endif
 
     return stack_frames;
