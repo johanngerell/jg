@@ -157,9 +157,8 @@ struct test_state final
     jg::test_suite_set* current_set{};
 };
 
-// Allowing the current test_state to be unset makes it possible to use the jg_test_assert macro
-// outside of test cases and suites, which is useful for quick main()-only tests that doesn't call
-// test_run, but that might grow to more complete suites.
+// Using the jg_test_assert macros outside of test cases and suites, which get executed by test_run(),
+// is not allowed. If that is done, the unset current state will be detected.
 test_state* current_state{};
 
 std::vector<jg::test_suite_set> suite_sets;
@@ -176,7 +175,7 @@ void test_add(jg::test_suite_set&& set)
 int test_run()
 {
     test_state state{};
-    current_state = &state;
+    state_scope_value test_set_scope(current_state, &state, nullptr);
     stopwatch sw;
 
     for (auto& set : suite_sets)
@@ -227,35 +226,40 @@ namespace jg::detail {
 
 void test_assert_prolog(const char* expr_string, const source_location& location)
 {
-    if (current_state)
+    if (!current_state)
     {
-        current_state->metrics.assertion_count++;
-        current_state->current_case->assertions.push_back({expr_string, location, true});
+        std::cout << jg::ostream_color(jg::fg_red_bright()) << "Runaway test assertion";
+        std::cout << " at ";
+        std::cout << jg::ostream_color(jg::fg_magenta_bright()) << location.file_name() << ':' << location.line() << '\n';
+        return;
     }
+
+    current_state->metrics.assertion_count++;
+    current_state->current_case->assertions.push_back({expr_string, location, true});
 }
 
 void test_assert_epilog(const char* expr_string, const source_location& location)
 {
-    if (current_state)
+    if (!current_state)
+        return; // test_assert_prolog outputs an error
+
+    if (current_state->current_suite->case_fail_count == 0)
     {
-        if (current_state->current_suite->case_fail_count == 0)
-        {
-            std::cout << jg::ostream_color(jg::fg_red_bright()) << "  Failed test suite ";
-            std::cout << jg::ostream_color(jg::fg_cyan_bright()) << '\'' << current_state->current_suite->description << "'\n";
-        }
-
-        if (current_state->current_case->assertion_fail_count == 0)
-        {
-            current_state->current_suite->case_fail_count++;
-            std::cout << jg::ostream_color(jg::fg_red_bright()) << "    Failed test case ";
-            std::cout << jg::ostream_color(jg::fg_cyan_bright()) << '\'' << current_state->current_case->description << "'\n";
-        }
-
-        current_state->current_case->assertions.back().succeeded = false;
-        current_state->current_case->assertion_fail_count++;
-        current_state->metrics.assertion_fail_count++;
+        std::cout << jg::ostream_color(jg::fg_red_bright()) << "  Failed test suite ";
+        std::cout << jg::ostream_color(jg::fg_cyan_bright()) << '\'' << current_state->current_suite->description << "'\n";
     }
-    
+
+    if (current_state->current_case->assertion_fail_count == 0)
+    {
+        current_state->current_suite->case_fail_count++;
+        std::cout << jg::ostream_color(jg::fg_red_bright()) << "    Failed test case ";
+        std::cout << jg::ostream_color(jg::fg_cyan_bright()) << '\'' << current_state->current_case->description << "'\n";
+    }
+
+    current_state->current_case->assertions.back().succeeded = false;
+    current_state->current_case->assertion_fail_count++;
+    current_state->metrics.assertion_fail_count++;
+
     std::cout << jg::ostream_color(jg::fg_red_bright()) << (current_state ? "      " : "") << "Failed test assertion ";
     std::cout << jg::ostream_color(jg::fg_cyan_bright()) << '\'' << expr_string << '\'';
     std::cout << " at ";
