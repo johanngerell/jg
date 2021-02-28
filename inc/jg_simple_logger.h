@@ -9,6 +9,7 @@
 #include <string>
 #include <sys/timeb.h>
 #include "jg_source_location.h"
+#include "jg_verify.h"
 
 namespace jg {
 
@@ -182,9 +183,11 @@ namespace jg {
 
 std::string to_string(const timestamp& time)
 {
-    // The reserve() should be a no-op, since the formatted string should fit in the SSO buffer.
+    // The reserve() should be a no-op, since the formatted string should fit in the SSO buffer for
+    // all major implementations.
     std::string result;
-    result.reserve(sizeof("HH:MM:SS.mmm"));
+    jg::debug_verify(sizeof("HH:MM:SS.mmm ") >= result.capacity());
+    result.reserve(sizeof("HH:MM:SS.mmm "));
 
     std::tm tm{};
     jg::os::localtime_safe(time.seconds, tm);
@@ -210,6 +213,7 @@ std::string to_string(const timestamp& time)
         result.append(1, '0');
     
     result.append(std::to_string(time.milliseconds));
+    result.append(1, ' ');
 
     return result;
 }

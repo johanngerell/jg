@@ -25,6 +25,7 @@ endif()
 add_executable(jg_stacktrace samples/jg_stacktrace.cpp)
 add_executable(jg_span samples/jg_span.cpp)
 add_executable(jg_simple_logger samples/jg_simple_logger.cpp)
+add_executable(jg_logging_allocator samples/jg_logging_allocator.cpp)
 add_executable(jg_tests tests/tests_main.cpp tests/args_tests.cpp tests/optional_tests.cpp
                         tests/string_tests.cpp tests/mock_tests.cpp tests/simple_logger_tests.cpp)
 
