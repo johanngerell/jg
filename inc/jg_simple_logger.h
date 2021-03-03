@@ -186,7 +186,7 @@ std::string to_string(const timestamp& time)
     // The reserve() should be a no-op, since the formatted string should fit in the SSO buffer for
     // all major implementations.
     std::string result;
-    jg::debug_verify(sizeof("HH:MM:SS.mmm ") >= result.capacity());
+    jg::debug_verify(sizeof("HH:MM:SS.mmm ") <= result.capacity());
     result.reserve(sizeof("HH:MM:SS.mmm "));
 
     std::tm tm{};

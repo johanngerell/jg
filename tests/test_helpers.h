@@ -22,7 +22,7 @@ public:
         , m_args{static_cast<int>(m_argv.size() - 1), m_argv.data()}
     {}
 
-    int             argc() const   { return m_argv.size() - 1; } // don't count last nullptr
+    int             argc() const   { return static_cast<int>(m_argv.size() - 1); } // don't count last nullptr
     char**          argv() const   { return m_argv.data(); }
     const jg::args& args() const   { return m_args; }
     std::string     joined() const { return jg::join(m_strings.begin(), m_strings.end(), " "); }

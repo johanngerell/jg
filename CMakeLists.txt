@@ -15,7 +15,7 @@ if(MSVC)
 endif()
 
 if (MSVC)
-    add_compile_options(/Zc:__cplusplus /EHsc /W4 /WX)
+    add_compile_options(/Zc:__cplusplus /EHsc /W4 /WX /DNOMINMAX)
 else()
     # jg::mock can't be used with -pedantic due to "the ##__VA_ARGS__ trick"
     add_compile_options(-Wall -Wextra -Werror)

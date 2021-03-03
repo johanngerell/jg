@@ -175,7 +175,7 @@ void test_add(jg::test_suite_set&& set)
 int test_run()
 {
     test_state state{};
-    state_scope_value test_set_scope(current_state, &state, nullptr);
+    state_scope_value test_state_scope(current_state, &state, nullptr);
     stopwatch sw;
 
     for (auto& set : suite_sets)

@@ -57,8 +57,8 @@ constexpr T abs_diff_squared(T first, T second)
 }
 
 // TODO: Maybe make constexpr when jg requires C++20
-template <typename FwdIt, typename TAverage>
-auto standard_deviation(FwdIt first, FwdIt last, TAverage average)
+template <typename FwdIt, typename TAverage, typename TReturn = TAverage>
+TReturn standard_deviation(FwdIt first, FwdIt last, TAverage average)
 {
     using value_type = typename std::iterator_traits<FwdIt>::value_type;
     static_assert(std::is_arithmetic_v<value_type>);
@@ -68,11 +68,11 @@ auto standard_deviation(FwdIt first, FwdIt last, TAverage average)
         return ack + abs_diff_squared(average, value);
     };
 
-    return sqrt(std::accumulate(first, last, value_type(0), diff_squared) / std::distance(first, last));
+    return static_cast<TReturn>(sqrt(std::accumulate(first, last, value_type(0), diff_squared) / std::distance(first, last)));
 }
 
 // TODO: Maybe make constexpr when jg requires C++20
-template <typename FwdIt, typename TMedian>
+template <typename FwdIt, typename TMedian, typename TReturn = TMedian>
 auto median_absolute_deviation(FwdIt first, FwdIt last, TMedian median)
 {
     using value_type = typename std::iterator_traits<FwdIt>::value_type;
