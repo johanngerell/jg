@@ -7,6 +7,26 @@
 
 namespace jg {
 
+/// Calls a unary function for each item in a range.
+template <typename Range, typename Callable>
+constexpr void for_each(Range& range, Callable callable)
+{
+    for (auto&& item : range)
+        callable(item);
+}
+
+/// Calls a unary function for each item in a range, and stops
+/// if the function returns false.
+template <typename Range, typename Callable>
+constexpr bool for_each_true(Range& range, Callable callable)
+{
+    for (auto&& item : range)
+        if (!callable(item))
+            return false;
+    
+    return true;
+}
+
 // std::find_if isn't constexpr in C++17
 template <typename FwdIt, typename Pred>
 constexpr FwdIt find_if(FwdIt first, FwdIt last, Pred pred)

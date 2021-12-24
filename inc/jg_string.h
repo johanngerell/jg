@@ -30,6 +30,9 @@ constexpr bool starts_with(std::string_view string, std::string_view start)
     return string.rfind(start, 0) == 0;
 }
 
+/// Splits the `delimiter`-separated `string` into exactly `NumTokens` tokens.
+/// @returns A fix-sized array with `NumToken` tokens if `string` has exactly `NumTokens` tokens separated
+///          by a `delimiter` character; otherwise `std::nullopt`.
 template <size_t NumTokens>
 constexpr std::optional<std::array<std::string_view, NumTokens>> split(std::string_view string, char delimiter)
 {
@@ -42,10 +45,10 @@ constexpr std::optional<std::array<std::string_view, NumTokens>> split(std::stri
         const size_t offset = string.find(delimiter);
 
         if (offset != std::string_view::npos && i == NumTokens - 1)
-            return std::nullopt;
+            return std::nullopt; // Shouldn't find a delimiter after the last token.
 
         if (offset == std::string_view::npos && i != NumTokens - 1)
-            return std::nullopt;
+            return std::nullopt; // Should find a delimiter before the last token.
 
         tokens[i] = string.substr(0, offset);
 
