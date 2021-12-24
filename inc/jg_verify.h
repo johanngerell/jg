@@ -1,7 +1,9 @@
 #pragma once
 
 #include <cassert>
+#if defined(JG_VERIFY_ENABLE_STACK_TRACE)
 #include "jg_stacktrace.h"
+#endif
 
 #if defined(JG_VERIFY_ASSERTION)
     void JG_VERIFY_ASSERTION(bool);

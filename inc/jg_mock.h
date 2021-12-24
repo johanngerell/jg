@@ -13,14 +13,24 @@
 //   - JG_MOCK
 //   - JG_MOCK_REF
 //
-// These compilation flags affect how jg::mock is built 
+// These compilation flags affect how jg::mock is built
 //
 //   - JG_MOCK_ENABLE_SHORT_NAMES: Enables mocking macros named without the "JG_" prefix.
 //
+// These compilation flags affect how jg::mock functions
+//
+//   - JG_MOCK_THROW_NOT_IMPLEMENTED: If a mocked function is called without an assigned func or result,
+//     a std::logic_error with the prototype of the called function is thrown. This makes it easier to
+//     use jg_mock with test frameworks like Catch2 and similar that handles tests that fail due to
+//     thrown exceptions.
 //
 // Note that MSVC versions before Visual Studio 2019 might require
 // /Zc:__cplusplus to enable checking #if (__cplusplus < 201402L) etc.
 //
+
+#ifdef JG_MOCK_THROW_NOT_IMPLEMENTED
+#include <stdexcept>
+#endif
 
 namespace jg::detail {
 
@@ -97,24 +107,29 @@ class verified<T, typename std::enable_if<std::is_reference<T>::value>::type> fi
 public:
     verified& operator=(T other)
     {
-        value = &other;
-        assigned = true;
+        m_value = &other;
+        m_assigned = true;
         return *this;
     }
 
     operator T()
     {
-        verify(assigned);
-        return *value;
+        verify(m_assigned);
+        return *m_value;
+    }
+
+    bool assigned() const
+    {
+        return m_assigned;
     }
 
 private:
 #if (__cplusplus >= 201402L)
-    std::remove_reference_t<T>* value = nullptr;
+    std::remove_reference_t<T>* m_value = nullptr;
 #else
-    typename std::remove_reference<T>::type* value = nullptr;
+    typename std::remove_reference<T>::type* m_value = nullptr;
 #endif
-    bool assigned = false;
+    bool m_assigned = false;
 };
 
 #if (__cplusplus >= 201402L)
@@ -129,27 +144,32 @@ class verified<T, typename std::enable_if<!std::is_reference<T>::value>::type> f
 public:
     verified& operator=(const T& other)
     {
-        value = other;
-        assigned = true;
+        m_value = other;
+        m_assigned = true;
         return *this;
     }
 
     verified& operator=(T&& other)
     {
-        value = std::move(other);
-        assigned = true;
+        m_value = std::move(other);
+        m_assigned = true;
         return *this;
     }
 
     operator T()
     {
-        verify(assigned);
-        return value;
+        verify(m_assigned);
+        return m_value;
+    }
+
+    bool assigned() const
+    {
+        return m_assigned;
     }
 
 private:
-    T value{};
-    bool assigned = false;
+    T m_value{};
+    bool m_assigned = false;
 };
 
 // The auxiliary data for a mock function that returns non-`void` has a `result` member
@@ -170,6 +190,12 @@ public:
 template <>
 class mock_aux_return<void>
 {
+public:
+	// If JG_MOCK_THROW_NOT_IMPLEMENTED is defined and func isn't set for a void-function mock,
+	// then a std::logic_error exception is thrown. By setting stub to true for the mock, the
+	// function can be called without setting func. This is handy when the function has a long
+	// parameter list and writing a lambda for it is a bit tiresome...
+	bool stub = false;
 };
 
 template <typename T, typename ...Params>
@@ -191,7 +217,7 @@ public:
 private:
     template <typename, typename>
     friend class mock_impl;
-    
+
     size_t m_count;
     std::string m_prototype;
 };
@@ -213,8 +239,13 @@ class mock_impl_base<T, TImpl, typename std::enable_if<std::is_same<T, void>::va
 public:
     template <typename... Params>
     void impl(Params&&... params)
-    {        
+    {
         auto& aux = static_cast<TImpl*>(this)->aux;
+
+		#ifdef JG_MOCK_THROW_NOT_IMPLEMENTED
+		if (!aux.func && !aux.stub)
+			throw std::logic_error(std::string("No func set for mocked function '").append(aux.prototype()).append("'."));
+		#endif
 
         if (aux.func)
             aux.func(std::forward<Params>(params)...);
@@ -242,10 +273,15 @@ public:
     T impl(Params&&... params)
     {
         auto& aux = static_cast<TImpl*>(this)->aux;
-        
+
+		#ifdef JG_MOCK_THROW_NOT_IMPLEMENTED
+		if (!aux.func && !aux.result.assigned())
+			throw std::logic_error(std::string("No func or result set for mocked function '").append(aux.prototype()).append("'."));
+		#endif
+
         if (aux.func)
             return aux.func(std::forward<Params>(params)...);
-        
+
         return aux.result;
     }
 };
@@ -361,7 +397,7 @@ public:
         _JG_VA8(__VA_ARGS__),_JG_VA7(__VA_ARGS__),_JG_VA6(__VA_ARGS__),_JG_VA5(__VA_ARGS__), \
         _JG_VA4(__VA_ARGS__),_JG_VA3(__VA_ARGS__),_JG_VA2(__VA_ARGS__),_JG_VA1(__VA_ARGS__), \
         _JG_VA0(__VA_ARGS__)
-    
+
     #define _JG_OVERLOADED_MACRO(name, ...) \
         _JG_CONCAT(name, _JG_VA_NUM_ARGS(__VA_ARGS__)) (__VA_ARGS__)
 #endif
@@ -443,29 +479,29 @@ public:
 /// The mock class can be instantiated in a test and passed to a type or a function under test
 /// that depends on the base class `user_names` for its functionality. By doing this, we can manipulate how
 /// that tested entity behaves regarding how it uses its `user_names` dependency. The `JG_MOCK` macro sets
-/// up some tools to help with that task in the test - the mock function auxiliary data. 
+/// up some tools to help with that task in the test - the mock function auxiliary data.
 ///
 /// The `JG_MOCK` macro does two things. First, it sets up an auxiliary data structure that can be used
 /// to 1) control what the mock function does when it's called, and 2) examine how it was called. Second,
-/// it creates a function body that will use the auxiliary data in it's implementation.  
+/// it creates a function body that will use the auxiliary data in it's implementation.
 ///
 /// The mock function implementation can be controlled in a test 1) by intercepting calls to it by setting
 /// the auxiliary data `func` to a callable (like a lambda) that does the actual implementation, or 2) by
 /// setting the auxiliary data `result` to a value that will be returned by the function.
 ///
 /// Typical usage of a the mock class we defined above:
-///     
+///
 ///     TEST("tested entity can do its job")
 ///     {
 ///         // The mock class instance.
 ///         mock_user_names names;
-///     
+///
 ///         // Whenever user_names::find_by_id is called by the tested entity, it always returns "Donald Duck".
 ///         names.find_by_id_.result = "Donald Duck";
-///     
+///
 ///         // Depends on user_names
 ///         some_tested_entity tested_entity(user_names);
-///     
+///
 ///         TEST_ASSERT(tested_entity.can_do_its_job());      // Allegedly uses user_names::find_by_id()
 ///         TEST_ASSERT(names.find_by_id_.called());          // Did the tested entity even call it?
 ///         TEST_ASSERT(names.find_by_id_.param<1>() < 4711); // Did the tested entity pass it a valid id?
@@ -490,7 +526,7 @@ public:
 ///                 default: return nullptr;
 ///             }
 ///         };
-///     
+///
 ///         // Depends on user_names
 ///         nephew_reporter tested_entity(user_names);
 ///
@@ -511,12 +547,12 @@ public:
 ///     JG_MOCK(,,, const char*, find_by_id, int);
 ///
 /// Typical usage of this mock:
-///     
+///
 ///     TEST("tested entity can do its job")
 ///     {
 ///         find_by_id_.reset();
 ///         find_by_id_.result = "Donald Duck";
-///     
+///
 ///         // Depends on find_by_id()
 ///         some_tested_entity tested_entity;
 ///
@@ -590,58 +626,73 @@ public:
                (function_name ## overload_suffix ## _).impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
     }
 
+/// Same as JG_MOCK, but with the calling convention STDMETHODCALLTYPE added to the function prototype
+#ifdef STDMETHODCALLTYPE
+#define JG_MOCK_COM(prefix, suffix, overload_suffix, return_type, function_name, ...) \
+    jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+    function_name ## overload_suffix ## _ \
+    {#return_type " " #function_name "(" #__VA_ARGS__ ") " #suffix}; \
+    prefix return_type STDMETHODCALLTYPE function_name(_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__)) suffix \
+    { \
+        return jg::detail::mock_impl<return_type, decltype(function_name ## overload_suffix ## _)> \
+               (function_name ## overload_suffix ## _).impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
+    }
+#else
+#define JG_MOCK_COM JG_MOCK
+#endif // STDMETHODCALLTYPE
+
 /// @macro JG_MOCK_REF
 ///
 /// Makes an `extern` declaration of the auxiliary data defined by a corresponding usage of `JG_MOCK` in
 /// a .cpp file. This makes it possible to only have one definition of a mock function in an entire test
 /// program, and using its auxiliary data in other translation units.
-/// 
+///
 /// Mocking the free function `foo* foolib_create(const char* id)` in one translation unit and using it in
 /// two other translation units can be done like this:
-/// 
+///
 ///   * foolib_mocks.cpp
-/// 
+///
 ///         #include "flubber_mocks.h"
-///     
+///
 ///         JG_MOCK(,,, foo*, foolib_create, const char*);
-/// 
+///
 ///   * flubber_mocks.h
-/// 
+///
 ///         #include <foolib.h>
 ///         #include <jg/jg_mock.h>
-///     
+///
 ///         JG_MOCK_REF(,,, foo*, foolib_create, const char*);
 ///
 ///   * flubber_tests.cpp
-/// 
+///
 ///         #include <flubber.h>
 ///         #include "foolib_mocks.h"
-///     
+///
 ///         TEST("A flubber can do it")
 ///         {
 ///             foo dummy_result;
 ///             foolib_create_.reset();
 ///             foolib_create_.result = reinterpret_cast<foo*>(&dummy_result);
-///     
+///
 ///             flubber f; // System under test - depends on foolib
-///             
+///
 ///             TEST_ASSERT(f.do_it()); // If foolib_create succeeds, flubber can do it
 ///             TEST_ASSERT(foolib_create_.called());
 ///             TEST_ASSERT(foolib_create_.param<1>() != nullptr);
 ///         }
-/// 
+///
 ///   * fiddler_tests.cpp
-/// 
+///
 ///         #include <fiddler.h>
 ///         #include "foolib_mocks.h"
-///     
+///
 ///         TEST("A fiddler can't play")
 ///         {
 ///             foolib_create_.reset();
 ///             foolib_create_.result = nullptr;
-///     
+///
 ///             fiddler f; // System under test - depends on foolib
-///             
+///
 ///             TEST_ASSERT(!f.play()); // If foolib_create fails, fiddler can't play
 ///             TEST_ASSERT(foolib_create_.called());
 ///             TEST_ASSERT(foolib_create_.param<1>() != nullptr);
@@ -653,5 +704,6 @@ public:
 
 #ifdef JG_MOCK_ENABLE_SHORT_NAMES
     #define MOCK     JG_MOCK
+    #define MOCK_COM JG_MOCK_COM
     #define MOCK_REF JG_MOCK_REF
 #endif
