@@ -5,31 +5,38 @@
 #ifndef JG_SIMPLE_LOGGER_INCLUDED
 #define JG_SIMPLE_LOGGER_INCLUDED
 
+#include <chrono>
 #include <iostream>
+#include <sstream>
+#include <iomanip>
 #include <string>
+#include <cstdlib>
 #include <sys/timeb.h>
 #include "jg_source_location.h"
 #include "jg_verify.h"
 
 namespace jg {
 
+using timestamp = std::chrono::system_clock::time_point;
 /// Holds the seconds and milliseconds parts of a timestamp returned from `ftime()`.
-struct timestamp final
-{
-    decltype(timeb::time) seconds{};
-    decltype(timeb::millitm) milliseconds{};
+// struct timestamp final
+// {
+//     //decltype(timeb::time) seconds{};
+//     //decltype(timeb::millitm) milliseconds{};
+//     std::chrono::system_clock::time_point t;
 
-    static timestamp now() noexcept
-    {
-        timeb timebuffer;
-        ftime(&timebuffer);
-        return {timebuffer.time, timebuffer.millitm};
-    }
-};
+//     static timestamp now() noexcept
+//     {
+//         //timeb timebuffer;
+//         //ftime(&timebuffer);
+//         //return {timebuffer.time, timebuffer.millitm};
+//         return {std::chrono::system_clock::now()};
+//     }
+// };
 
 /// Formats a `timestamp` into a 24-hour "hh:mm:ss.mmm " string. The formatted string should fit in the
 /// SSO buffer in all real implementations (clang, gcc, msvc, etc.), so no allocations should occur.
-std::string to_string(const timestamp& time);
+std::string to_string(const timestamp& timestamp);
 
 inline std::ostream& operator<<(std::ostream& stream, const timestamp& timestamp)
 {
@@ -63,7 +70,7 @@ inline std::ostream& operator<<(std::ostream& stream, log_level severity)
 
 struct log_event final
 {
-    timestamp time{};
+    timestamp timestamp{};
     log_level level{};
     source_location location{};
 };
@@ -161,7 +168,9 @@ ostream_line log_fatal_line();
 #define jg_log_error_line()   if (jg::log_enabled(jg::log_level::error))   jg::log_info_error()
 #define jg_log_fatal_line()   if (jg::log_enabled(jg::log_level::fatal))   jg::log_info_fatal()
 
-#define jg_new_log_event(level) jg::log_event{jg::timestamp::now(), level, jg_current_source_location()}
+// TODO: Look up Arthur O’Dwyer's "How to replace __FILE__ with source_location in a logging macro"
+// at https://quuxplusone.github.io/blog/2020/02/12/source-location/
+#define jg_new_log_event(level) jg::log_event{std::chrono::system_clock::now(), level, jg_current_source_location()}
 
 #ifdef JG_SIMPLE_LOGGER_IMPL
 #undef JG_SIMPLE_LOGGER_IMPL
@@ -181,42 +190,453 @@ struct log_configuration final
 
 namespace jg {
 
-std::string to_string(const timestamp& time)
+#if 0
+std::string to_string2(const timestamp& time)
 {
     // The reserve() should be a no-op, since the formatted string should fit in the SSO buffer for
     // all major implementations.
     std::string result;
-    jg::debug_verify(sizeof("HH:MM:SS.mmm ") <= result.capacity());
-    result.reserve(sizeof("HH:MM:SS.mmm "));
+    constexpr size_t formatted_length{sizeof("HH:MM:SS.mmm ") - 1}; // implicit \0 in the string literal
+    jg::debug_verify(formatted_length <= result.capacity());
+    result.reserve(formatted_length);
 
-    std::tm tm{};
-    jg::os::localtime_safe(time.seconds, tm);
+    const std::tm tm = jg::os::localtime_safe(time.seconds);
 
     if (tm.tm_hour < 10)
-        result.append(1, '0');
+        result += '0';
     
-    result.append(std::to_string(tm.tm_hour)).append(1, ':');
+    result += std::to_string(tm.tm_hour);
+    result += ':';
 
     if (tm.tm_min < 10)
-        result.append(1, '0');
+        result += '0';
     
-    result.append(std::to_string(tm.tm_min)).append(1, ':');
+    result += std::to_string(tm.tm_min);
+    result += ':';
 
     if (tm.tm_sec < 10)
-        result.append(1, '0');
+        result += '0';
     
-    result.append(std::to_string(tm.tm_sec)).append(1, '.');
+    result += std::to_string(tm.tm_sec);
+    result += '.';
+    
+    if (time.milliseconds < 100)
+    {
+        result += '0';
 
-    if (time.milliseconds < 10)
-        result.append(2, '0');
-    else if (time.milliseconds < 100)
-        result.append(1, '0');
+        if (time.milliseconds < 10)
+            result += '0';
+    }
     
-    result.append(std::to_string(time.milliseconds));
-    result.append(1, ' ');
+    result += std::to_string(time.milliseconds);
+    result += ' ';
 
     return result;
 }
+
+std::string to_string3(const timestamp& time)
+{
+    char result[sizeof("HH:MM:SS.mmm ")]; // implicit \0 in the string literal
+    constexpr size_t pos_H1{0};
+    constexpr size_t pos_H2{1};
+    constexpr size_t pos_D1{2};
+    constexpr size_t pos_M1{3};
+    constexpr size_t pos_M2{4};
+    constexpr size_t pos_D2{5};
+    constexpr size_t pos_S1{6};
+    constexpr size_t pos_S2{7};
+    constexpr size_t pos_D3{8};
+    constexpr size_t pos_m1{9};
+    constexpr size_t pos_m2{10};
+    constexpr size_t pos_m3{11};
+    constexpr size_t pos_D4{12};
+
+    const std::tm tm = jg::os::localtime_safe(time.seconds);
+
+    if (tm.tm_hour < 10)
+    {
+        result[pos_H1] = '0';
+        result[pos_H2] = '0' + (char)tm.tm_hour;
+    }
+    else
+    {
+        result[pos_H1] = '0' + (char)tm.tm_hour / 10;
+        result[pos_H2] = '0' + (char)tm.tm_hour % 10;
+    }
+    
+    result[pos_D1] = ':';
+
+    if (tm.tm_min < 10)
+    {
+        result[pos_M1] = '0';
+        result[pos_M2] = '0' + (char)tm.tm_min;
+    }
+    else
+    {
+        result[pos_M1] = '0' + (char)tm.tm_min / 10;
+        result[pos_M2] = '0' + (char)tm.tm_min % 10;
+    }
+    
+    result[pos_D2] = ':';
+
+    if (tm.tm_sec < 10)
+    {
+        result[pos_S1] = '0';
+        result[pos_S2] = '0' + static_cast<char>(tm.tm_sec);
+    }
+    else
+    {
+        result[pos_S1] = '0' + static_cast<char>(tm.tm_sec / 10);
+        result[pos_S2] = '0' + static_cast<char>(tm.tm_sec % 10);
+    }
+    
+    result[pos_D3] = '.';
+    
+    if (time.milliseconds < 10)
+    {
+        result[pos_m1] = '0';
+        result[pos_m2] = '0';
+        result[pos_m3] = '0' + static_cast<char>(time.milliseconds);
+    }
+    else if (time.milliseconds < 100)
+    {
+        result[pos_m1] = '0';
+        result[pos_m2] = '0' + static_cast<char>(time.milliseconds / 10);
+        result[pos_m3] = '0' + static_cast<char>(time.milliseconds % 10);
+    }
+    else // if (time.milliseconds < 1000)
+    {
+        result[pos_m1] = '0' + static_cast<char>(time.milliseconds / 100);
+        result[pos_m2] = '0' + static_cast<char>((time.milliseconds % 100) / 10);
+        result[pos_m3] = '0' + static_cast<char>((time.milliseconds % 100) % 10);
+    }
+    
+    result[pos_D4] = ' ';
+
+    return {result, sizeof(result) - 1};
+}
+
+std::string to_string4(const timestamp& time)
+{
+    char result[] = "00:00:00.000 ";
+    constexpr size_t pos_HH{0};
+    constexpr size_t pos_MM{3};
+    constexpr size_t pos_SS{6};
+    constexpr size_t pos_mmm{9};
+
+    const std::tm tm = jg::os::localtime_safe(time.seconds);
+
+    if (tm.tm_hour < 10)
+        result[pos_HH + 1] = '0' + static_cast<char>(tm.tm_hour);
+    else // if (tm.tm_hour < 24)
+    {
+        const auto d10 = std::div(tm.tm_hour, 10);
+        result[pos_HH]     = '0' + static_cast<char>(d10.quot);
+        result[pos_HH + 1] = '0' + static_cast<char>(d10.rem);
+    }
+    
+    if (tm.tm_min < 10)
+        result[pos_MM + 1] = '0' + static_cast<char>(tm.tm_min);
+    else // if (tm.tm_min < 100)
+    {
+        const auto d10 = std::div(tm.tm_min, 10);
+        result[pos_MM]     = '0' + static_cast<char>(d10.quot);
+        result[pos_MM + 1] = '0' + static_cast<char>(d10.rem);
+    }
+    
+    if (tm.tm_sec < 10)
+        result[pos_SS + 1] = '0' + static_cast<char>(tm.tm_sec);
+    else // if (tm.tm_sec < 100)
+    {
+        const auto d10 = std::div(tm.tm_sec, 10);
+        result[pos_SS]     = '0' + static_cast<char>(d10.quot);
+        result[pos_SS + 1] = '0' + static_cast<char>(d10.rem);
+    }
+    
+    if (time.milliseconds < 10)
+        result[pos_mmm + 2] = '0' + static_cast<char>(time.milliseconds);
+    else if (time.milliseconds < 100)
+    {
+        const auto d10 = std::div(time.milliseconds, 10);
+        result[pos_mmm + 1] = '0' + static_cast<char>(d10.quot);
+        result[pos_mmm + 2] = '0' + static_cast<char>(d10.rem);
+    }
+    else // if (time.milliseconds < 1000)
+    {
+        const auto d100 = std::div(time.milliseconds, 100);
+        const auto d10  = std::div(d100.rem, 10);
+        result[pos_mmm]     = '0' + static_cast<char>(d100.quot);
+        result[pos_mmm + 1] = '0' + static_cast<char>(d10.quot);
+        result[pos_mmm + 2] = '0' + static_cast<char>(d10.rem);
+    }
+
+    return {result, sizeof(result) - 1};
+}
+
+std::string to_string(const timestamp& time)
+{
+    std::string result{"00:00:00.000 "};
+    constexpr size_t pos_HH{0};
+    constexpr size_t pos_MM{3};
+    constexpr size_t pos_SS{6};
+    constexpr size_t pos_mmm{9};
+
+    const std::tm tm = jg::os::localtime_safe(time.seconds);
+
+    if (tm.tm_hour < 10)
+        result[pos_HH + 1] = '0' + static_cast<char>(tm.tm_hour);
+    else // if (tm.tm_hour < 24)
+    {
+        const auto d10 = std::div(tm.tm_hour, 10);
+        result[pos_HH]     = '0' + static_cast<char>(d10.quot);
+        result[pos_HH + 1] = '0' + static_cast<char>(d10.rem);
+    }
+    
+    if (tm.tm_min < 10)
+        result[pos_MM + 1] = '0' + static_cast<char>(tm.tm_min);
+    else // if (tm.tm_min < 100)
+    {
+        const auto d10 = std::div(tm.tm_min, 10);
+        result[pos_MM]     = '0' + static_cast<char>(d10.quot);
+        result[pos_MM + 1] = '0' + static_cast<char>(d10.rem);
+    }
+    
+    if (tm.tm_sec < 10)
+        result[pos_SS + 1] = '0' + static_cast<char>(tm.tm_sec);
+    else // if (tm.tm_sec < 100)
+    {
+        const auto d10 = std::div(tm.tm_sec, 10);
+        result[pos_SS]     = '0' + static_cast<char>(d10.quot);
+        result[pos_SS + 1] = '0' + static_cast<char>(d10.rem);
+    }
+    
+    if (time.milliseconds < 10)
+        result[pos_mmm + 2] = '0' + static_cast<char>(time.milliseconds);
+    else if (time.milliseconds < 100)
+    {
+        const auto d10 = std::div(time.milliseconds, 10);
+        result[pos_mmm + 1] = '0' + static_cast<char>(d10.quot);
+        result[pos_mmm + 2] = '0' + static_cast<char>(d10.rem);
+    }
+    else // if (time.milliseconds < 1000)
+    {
+        const auto d100 = std::div(time.milliseconds, 100);
+        const auto d10  = std::div(d100.rem, 10);
+        result[pos_mmm]     = '0' + static_cast<char>(d100.quot);
+        result[pos_mmm + 1] = '0' + static_cast<char>(d10.quot);
+        result[pos_mmm + 2] = '0' + static_cast<char>(d10.rem);
+    }
+
+    return result;
+}
+#endif
+
+#if 0
+std::string to_string(const timestamp& timestamp)
+{
+    std::string result{"00:00:00.000 "};
+    //char result[] = "00:00:00.000 ";
+    constexpr size_t pos_HH{0};
+    constexpr size_t pos_MM{3};
+    constexpr size_t pos_SS{6};
+    constexpr size_t pos_mmm{9};
+
+    const std::time_t tt = std::chrono::system_clock::to_time_t(timestamp);
+    const std::tm tm = jg::os::localtime_safe(tt);
+
+    if (tm.tm_hour < 10)
+        result[pos_HH + 1] = '0' + static_cast<char>(tm.tm_hour);
+    else // if (tm.tm_hour < 24)
+    {
+        const auto d10 = std::div(tm.tm_hour, 10);
+        result[pos_HH]     = '0' + static_cast<char>(d10.quot);
+        result[pos_HH + 1] = '0' + static_cast<char>(d10.rem);
+    }
+    
+    if (tm.tm_min < 10)
+        result[pos_MM + 1] = '0' + static_cast<char>(tm.tm_min);
+    else // if (tm.tm_min < 100)
+    {
+        const auto d10 = std::div(tm.tm_min, 10);
+        result[pos_MM]     = '0' + static_cast<char>(d10.quot);
+        result[pos_MM + 1] = '0' + static_cast<char>(d10.rem);
+    }
+    
+    if (tm.tm_sec < 10)
+        result[pos_SS + 1] = '0' + static_cast<char>(tm.tm_sec);
+    else // if (tm.tm_sec < 100)
+    {
+        const auto d10 = std::div(tm.tm_sec, 10);
+        result[pos_SS]     = '0' + static_cast<char>(d10.quot);
+        result[pos_SS + 1] = '0' + static_cast<char>(d10.rem);
+    }
+    
+    const auto ms = static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(timestamp - std::chrono::system_clock::from_time_t(tt)).count());    
+
+    if (ms < 10)
+        result[pos_mmm + 2] = '0' + static_cast<char>(ms);
+    else if (ms < 100)
+    {
+        const auto d10 = std::div(ms, 10);
+        result[pos_mmm + 1] = '0' + static_cast<char>(d10.quot);
+        result[pos_mmm + 2] = '0' + static_cast<char>(d10.rem);
+    }
+    else // if (ms < 1000)
+    {
+        const auto d100 = std::div(ms, 100);
+        const auto d10  = std::div(d100.rem, 10);
+        result[pos_mmm]     = '0' + static_cast<char>(d100.quot);
+        result[pos_mmm + 1] = '0' + static_cast<char>(d10.quot);
+        result[pos_mmm + 2] = '0' + static_cast<char>(d10.rem);
+    }
+
+    return result;
+    //return {result, sizeof(result) - 1};
+}
+#endif
+
+void write2(char* cs, int value)
+{
+    cs[0] = '0' + static_cast<char>(value / 10);
+    cs[1] = '0' + static_cast<char>(value % 10);
+}
+
+void write3(char* cs, int value)
+{
+    cs[0] = '0' + static_cast<char>(value / 100);
+    cs[1] = '0' + static_cast<char>((value % 100) / 10);
+    cs[2] = '0' + static_cast<char>((value % 100) % 10);
+}
+
+std::string to_string(const timestamp& timestamp)
+{
+    const std::time_t tt = std::chrono::system_clock::to_time_t(timestamp);
+    const std::tm tm = jg::os::localtime_safe(tt);
+    const auto ms = static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(timestamp - std::chrono::system_clock::from_time_t(tt)).count());
+
+    std::stringstream result;
+    result << std::put_time(&tm, "%T") << '.';
+    result << std::setw(3) << std::setfill('0') << ms << ' ';
+
+    return result.str();
+}
+
+#if 0
+std::string to_string(const timestamp& timestamp)
+{
+    const std::time_t tt = std::chrono::system_clock::to_time_t(timestamp);
+    const std::tm tm = jg::os::localtime_safe(tt);
+    const auto ms = static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(timestamp - std::chrono::system_clock::from_time_t(tt)).count());
+
+    std::stringstream result;
+    result.fill('0');
+    result << std::setw(2) << tm.tm_hour << ':';
+    result << std::setw(2) << tm.tm_min << ':';
+    result << std::setw(2) << tm.tm_sec << '.';
+    result << std::setw(3) << ms << ' ';
+
+    return result.str();
+}
+#endif
+
+#if 0
+std::string to_string(const timestamp& timestamp)
+{
+    constexpr auto result_length{sizeof("00:00:00.000 ") - 1};
+    char result[result_length + 1];
+    const std::time_t tt = std::chrono::system_clock::to_time_t(timestamp);
+    const std::tm tm = jg::os::localtime_safe(tt);
+    const auto ms = static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(timestamp - std::chrono::system_clock::from_time_t(tt)).count());
+    write2(&result[0], tm.tm_hour);
+    result[2] = ':';
+    write2(&result[3], tm.tm_min);
+    result[5] = ':';
+    write2(&result[6], tm.tm_sec);
+    result[8] = '.';
+    write3(&result[9], ms);
+    result[12] = ' ';
+
+    return {result, result_length};
+}
+#endif
+
+#if 0
+void write2(char* cs, int value)
+{
+    const auto div10 = std::div(value, 10);
+    cs[0] = '0' + static_cast<char>(div10.quot);
+    cs[1] = '0' + static_cast<char>(div10.rem);
+}
+
+void write3(char* cs, int value)
+{
+    const auto div100 = std::div(value, 100);
+    cs[0] = '0' + static_cast<char>(div100.quot);
+    write2(cs + 1, div100.rem);
+}
+
+std::string to_string(const timestamp& timestamp)
+{
+    std::string result{"00:00:00.000 "};
+    //char result[] = "00:00:00.000 ";
+    const std::time_t tt = std::chrono::system_clock::to_time_t(timestamp);
+    const std::tm tm = jg::os::localtime_safe(tt);
+    const auto ms = static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(timestamp - std::chrono::system_clock::from_time_t(tt)).count());
+    write2(&result[0], tm.tm_hour);
+    write2(&result[3], tm.tm_min);
+    write2(&result[6], tm.tm_sec);
+    write3(&result[9], ms);
+
+    return result;
+    //return {result, sizeof(result) - 1};
+}
+#endif
+
+#if 0
+std::string to_string(const timestamp& timestamp)
+{
+    std::string result{"00:00:00.000 "};
+    //char result[] = "00:00:00.000 ";
+    constexpr size_t pos_HH{0};
+    constexpr size_t pos_MM{3};
+    constexpr size_t pos_SS{6};
+    constexpr size_t pos_mmm{9};
+
+    const std::time_t tt = std::chrono::system_clock::to_time_t(timestamp);
+    const std::tm tm = jg::os::localtime_safe(tt);
+
+    {
+        const auto d10 = std::div(tm.tm_hour, 10);
+        result[pos_HH]     = '0' + static_cast<char>(d10.quot);
+        result[pos_HH + 1] = '0' + static_cast<char>(d10.rem);
+    }
+    
+    {
+        const auto d10 = std::div(tm.tm_min, 10);
+        result[pos_MM]     = '0' + static_cast<char>(d10.quot);
+        result[pos_MM + 1] = '0' + static_cast<char>(d10.rem);
+    }
+    
+    {
+        const auto d10 = std::div(tm.tm_sec, 10);
+        result[pos_SS]     = '0' + static_cast<char>(d10.quot);
+        result[pos_SS + 1] = '0' + static_cast<char>(d10.rem);
+    }
+    
+    const auto ms = static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(timestamp - std::chrono::system_clock::from_time_t(tt)).count());    
+
+    {
+        const auto d100 = std::div(ms, 100);
+        const auto d10  = std::div(d100.rem, 10);
+        result[pos_mmm]     = '0' + static_cast<char>(d100.quot);
+        result[pos_mmm + 1] = '0' + static_cast<char>(d10.quot);
+        result[pos_mmm + 2] = '0' + static_cast<char>(d10.rem);
+    }
+
+    return result;
+    //return {result, sizeof(result) - 1};
+}
+#endif
 
 bool log_enabled() noexcept
 {
@@ -245,7 +665,7 @@ void log_set_level(log_level level) noexcept
 
 std::ostream& log()
 {
-    return (*configuration.ostream << timestamp::now());
+    return (*configuration.ostream << timestamp{std::chrono::system_clock::now()});
 }
 
 std::ostream& log_info()

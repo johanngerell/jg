@@ -10,6 +10,7 @@
 namespace jg::os {
 
 tm* localtime_safe(time_t time, tm& result);
+tm localtime_safe(time_t time);
 
 } // namespace jg::os
 
@@ -24,6 +25,16 @@ tm* localtime_safe(time_t time, tm& result)
     return localtime_s(&result, &time) == 0 ? &result : nullptr;
 #else
     return localtime_r(&time, &result);
+#endif
+}
+
+tm localtime_safe(time_t time)
+{
+    tm result;
+#ifdef _WIN32
+    return localtime_s(&result, &time) == 0 ? result : tm();
+#else
+    return localtime_r(&time, &result), result;
 #endif
 }
 

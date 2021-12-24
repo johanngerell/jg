@@ -19,6 +19,7 @@ jg::timestamp make_timestamp(size_t hours, size_t minutes, size_t seconds, size_
     if (seconds > 59)       throw std::range_error("seconds > 59");
     if (milliseconds > 999) throw std::range_error("milliseconds > 999");
 
+#if 0
     std::stringstream ss;
     ss << std::setfill('0')
        << std::setw(2) << hours << ':'
@@ -29,6 +30,18 @@ jg::timestamp make_timestamp(size_t hours, size_t minutes, size_t seconds, size_
     ss >> std::get_time(jg::os::localtime_safe(time(nullptr), tm), "%H:%M:%S");
 
     return {mktime(&tm), static_cast<decltype(jg::timestamp::milliseconds)>(milliseconds)};
+#endif
+
+    std::time_t tt = time(nullptr);
+    std::tm tm = jg::os::localtime_safe(tt);
+    tm.tm_sec = (int)seconds;
+    tm.tm_min = (int)minutes;
+    tm.tm_hour = (int)hours;
+    //tm.tm_isdst = -1;
+    tt = mktime(&tm);
+    std::chrono::system_clock::time_point tp = std::chrono::system_clock::from_time_t(tt);
+    tp += std::chrono::milliseconds(milliseconds);
+    return {tp};
 }
 
 jg::test_adder simple_logger_tests { "simple_logger", {

@@ -95,7 +95,7 @@ public:
 private:
     mutable std::ostream* m_stream{};
     fg_color m_fg;
-    std::optional<bg_color> m_bg;
+    std::optional<bg_color> m_bg; // TODO: Use a "no color" value instead of optional
 };
 
 } // namespace jg

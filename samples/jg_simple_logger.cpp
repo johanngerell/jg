@@ -55,12 +55,12 @@ std::vector<jg::benchmark_result> benchmark()
         jg::benchmark("jg::timestamp::now", 10, 100, [&]
         {
             for (size_t i = 0; i < 100; ++i)
-                timestamps[i] = jg::timestamp::now();
+                timestamps[i] = {std::chrono::system_clock::now()};
         }),
         jg::benchmark("jg::to_string(timestamp)", 10, 100, [&]
         {
             for (size_t i = 0; i < 100; ++i)
-                strings[i] = to_string(timestamps[i]);
+                strings[i] = jg::to_string(timestamps[i]);
         }),
         jg::benchmark("jg_new_log_event", 10, 100, [&]
         {
