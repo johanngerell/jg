@@ -10,8 +10,8 @@
 //
 // These mocking macros are defined and documented at the bottom of this file:
 //
-//   - JG_MOCK
-//   - JG_MOCK_REF
+//   - JG_MOCK_EX
+//   - JG_MOCK_REF_EX
 //
 // These compilation flags affect how jg::mock is built
 //
@@ -172,47 +172,72 @@ private:
     bool m_assigned = false;
 };
 
+template <typename TImpl>
+class mock_aux_return_base
+{
+public:
+	// If JG_MOCK_THROW_NOT_IMPLEMENTED is defined and func or result isn't set for a void function mock,
+	// or func isn't set for a non-void function mock, then a std::logic_error exception is thrown if the
+	// function is called. By calling stub() on the mock, or declaring the mock with any of the JG_STUB*
+	// macros, the function can be called without setting func or result. This is handy when the function
+	// has a long parameter list and writing an empty lambda for it is a bit tiresome. Making the mock a
+	// stub is a persistent change, i.e., the mock remains a stub after being reset.
+	void stub() { m_stub = true; static_cast<TImpl*>(this)->on_stub(); }
+	bool is_stub() const { return m_stub; }
+
+private:
+	bool m_stub = false;
+};
+
 // The auxiliary data for a mock function that returns non-`void` has a `result` member
 // that can be set in tests. This is the simplest way to just return a specific value from a
 // mock function. The other way is to assign a callable (like a lambda) to the `func` member,
 // but if just a return value needs to be modeled, then `result` is the easier way.
 template <typename T>
-class mock_aux_return
+class mock_aux_return : public mock_aux_return_base<mock_aux_return<T>>
 {
 public:
     // Verifying that a test doesn't use it without first setting it.
+	// Setting the mock result is a persistent change, i.e., the result remains after the mock is reset.
     verified<T> result;
+
+private:
+	friend class mock_aux_return_base<mock_aux_return<T>>;
+	void on_stub() { result = T{}; }
 };
 
 // The auxiliary data for a mock function that returns `void` has no `result` member, and
 // the function implementation can only be controlled by assigning a callable (like a lambda)
 // to the `func` member.
 template <>
-class mock_aux_return<void>
+class mock_aux_return<void> : public mock_aux_return_base<mock_aux_return<void>>
 {
-public:
-	// If JG_MOCK_THROW_NOT_IMPLEMENTED is defined and func isn't set for a void-function mock,
-	// then a std::logic_error exception is thrown. By setting stub to true for the mock, the
-	// function can be called without setting func. This is handy when the function has a long
-	// parameter list and writing a lambda for it is a bit tiresome...
-	bool stub = false;
+private:
+	friend class mock_aux_return_base<mock_aux_return<void>>;
+	void on_stub() {}
 };
 
 template <typename T, typename ...Params>
 class mock_aux final : public mock_aux_return<T>, public mock_aux_parameters<sizeof...(Params), Params...>
 {
 public:
+	// The mock prototype is persistent, i.e., the it remains after the mock is reset.
     mock_aux(std::string prototype)
         : m_count(0)
         , m_prototype(trim(prototype, " "))
     {}
 
+	// Setting the mock func is a persistent change, i.e., the func remains after the mock is reset.
     std::function<T(Params...)> func;
     size_t                      count() const { return m_count; }
     bool                        called() const { return m_count > 0; }
     std::string                 prototype() const { return m_prototype; }
 
-    void                        reset() { *this = mock_aux(m_prototype); }
+    void                        reset()
+    {
+        m_count = 0;
+        m_params = {};//tuple_params_t<Params...>
+    }
 
 private:
     template <typename, typename>
@@ -240,10 +265,10 @@ public:
     template <typename... Params>
     void impl(Params&&... params)
     {
-        auto& aux = static_cast<TImpl*>(this)->aux;
+        auto& aux = static_cast<TImpl*>(this)->m_aux;
 
 		#ifdef JG_MOCK_THROW_NOT_IMPLEMENTED
-		if (!aux.func && !aux.stub)
+		if (!aux.func && !aux.is_stub())
 			throw std::logic_error(std::string("No func set for mocked function '").append(aux.prototype()).append("'."));
 		#endif
 
@@ -272,10 +297,10 @@ public:
     template <typename... Params>
     T impl(Params&&... params)
     {
-        auto& aux = static_cast<TImpl*>(this)->aux;
+        auto& aux = static_cast<TImpl*>(this)->m_aux;
 
 		#ifdef JG_MOCK_THROW_NOT_IMPLEMENTED
-		if (!aux.func && !aux.result.assigned())
+		if (!aux.func && !aux.result.assigned() && !aux.is_stub())
 			throw std::logic_error(std::string("No func or result set for mocked function '").append(aux.prototype()).append("'."));
 		#endif
 
@@ -293,26 +318,24 @@ template <typename T, typename TMockAux>
 class mock_impl final : public mock_impl_base<T, mock_impl<T, TMockAux>>
 {
 public:
-    TMockAux& aux;
-
     mock_impl(const TMockAux& aux)
-        : aux(const_cast<TMockAux&>(aux)) // Minor hack to be able to use the same JG_MOCK macro for
-                                          // both member functions and free functions. `mutable`
-                                          // would otherwise be needed for some member functions,
-                                          // and that would require separate macro implementations.
-                                          // It's a "minor" hack because it's an implementation
-                                          // detail and we know that the original instance is non-const.
+        : m_aux(const_cast<TMockAux&>(aux)) // Minor hack to be able to use the same JG_MOCK_EX macro for
+                                            // both member functions and free functions. `mutable`
+                                            // would otherwise be needed for some members,
+                                            // and that would require separate macro implementations.
+                                            // It's a "minor" hack because it's an implementation
+                                            // detail and we know that the original instance is non-const.
     {}
 
     ~mock_impl()
     {
-        aux.m_count++;
+        m_aux.m_count++;
     }
 
     template <typename... Params>
     T impl(Params&&... params)
     {
-        aux.set_params(std::forward<Params>(params)...);
+        m_aux.set_params(std::forward<Params>(params)...);
         return mock_impl_base<T, mock_impl<T, TMockAux>>::impl(std::forward<Params>(params)...);
     }
 
@@ -320,6 +343,10 @@ public:
     {
         return mock_impl_base<T, mock_impl<T, TMockAux>>::impl();
     }
+
+private:
+	friend class mock_impl_base<T, mock_impl<T, TMockAux>>;
+    TMockAux& m_aux;
 };
 
 } // namespace jg::detail
@@ -434,7 +461,7 @@ public:
 
 // --------------------------- Implementation details go above this line ---------------------------
 
-/// @macro JG_MOCK
+/// @macro JG_MOCK_EX
 ///
 /// Defines a free function, or a virtual member function override, with auxiliary data for use in testing.
 ///
@@ -450,12 +477,12 @@ public:
 ///     };
 ///
 /// We can mock that function in a test by deriving a mock class `mock_user_names` from `user_names`
-/// and use the `JG_MOCK` macro in its body:
+/// and use the `JG_MOCK_EX` macro in its body:
 ///
 ///     class mock_user_names final : public user_names
 ///     {
 ///     public:
-///         JG_MOCK(,,, const char*, find_by_id, int);
+///         JG_MOCK_EX(,,, const char*, find_by_id, int);
 ///         ...
 ///     };
 ///
@@ -464,13 +491,13 @@ public:
 ///     class mock_user_names final : public user_names
 ///     {
 ///     public:
-///         JG_MOCK(virtual, override,, const char*, find_by_id, int);
+///         JG_MOCK_EX(virtual, override,, const char*, find_by_id, int);
 ///         ...
 ///     };
 ///
 /// Since `virtual` and `override` aren't strictly mandatory to use when overriding virtual base class
-/// functions, they can be omitted from the `JG_MOCK` declaration to make it easier to read. As the
-/// `JG_MOCK` declaration shows, its first two parameters are named `prefix` and `suffix` and they'll
+/// functions, they can be omitted from the `JG_MOCK_EX` declaration to make it easier to read. As the
+/// `JG_MOCK_EX` declaration shows, its first two parameters are named `prefix` and `suffix` and they'll
 /// simply be pasted before and after the function declaration by the macro. The third parameter is named
 /// `overload_suffix` and it's empty in this example, which just means that we're not mocking an overloaded
 /// function. If we were, we could set a suffix here that would be added to the auxiliary data
@@ -478,10 +505,10 @@ public:
 ///
 /// The mock class can be instantiated in a test and passed to a type or a function under test
 /// that depends on the base class `user_names` for its functionality. By doing this, we can manipulate how
-/// that tested entity behaves regarding how it uses its `user_names` dependency. The `JG_MOCK` macro sets
+/// that tested entity behaves regarding how it uses its `user_names` dependency. The `JG_MOCK_EX` macro sets
 /// up some tools to help with that task in the test - the mock function auxiliary data.
 ///
-/// The `JG_MOCK` macro does two things. First, it sets up an auxiliary data structure that can be used
+/// The `JG_MOCK_EX` macro does two things. First, it sets up an auxiliary data structure that can be used
 /// to 1) control what the mock function does when it's called, and 2) examine how it was called. Second,
 /// it creates a function body that will use the auxiliary data in it's implementation.
 ///
@@ -542,9 +569,9 @@ public:
 ///
 ///     const char* find_by_id(int id);
 ///
-/// We can mock it in a test, using the `JG_MOCK` macro in the same way as with the virtual function:
+/// We can mock it in a test, using the `JG_MOCK_EX` macro in the same way as with the virtual function:
 ///
-///     JG_MOCK(,,, const char*, find_by_id, int);
+///     JG_MOCK_EX(,,, const char*, find_by_id, int);
 ///
 /// Typical usage of this mock:
 ///
@@ -616,7 +643,7 @@ public:
 /// @param return_type The type of the return value, or `void`.
 /// @param function_name The name of the function to mock.
 /// @param variadic Variadic parameter list of parameter types for the function, if any.
-#define JG_MOCK(prefix, suffix, overload_suffix, return_type, function_name, ...) \
+#define JG_MOCK_EX(prefix, suffix, overload_suffix, return_type, function_name, ...) \
     jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
     function_name ## overload_suffix ## _ \
     {#return_type " " #function_name "(" #__VA_ARGS__ ") " #suffix}; \
@@ -626,9 +653,48 @@ public:
                (function_name ## overload_suffix ## _).impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
     }
 
-/// Same as JG_MOCK, but with the calling convention STDMETHODCALLTYPE added to the function prototype
+#define JG_MOCK(return_type, function_name, ...) \
+    jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+    function_name ## _ \
+    {#return_type " " #function_name "(" #__VA_ARGS__ ")"}; \
+    return_type function_name(_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__)) \
+    { \
+        return jg::detail::mock_impl<return_type, decltype(function_name ## _)> \
+               (function_name ## _).impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
+    }
+
+/// @macro JG_STUB_EX
+///
+/// Same as JG_MOCK_EX, but with the stub() function invoked automatically, to easily "stub out" functions.
+#define JG_STUB_EX(prefix, suffix, overload_suffix, return_type, function_name, ...) \
+    jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+    function_name ## overload_suffix ## _ = [] { \
+    	jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+    	aux{#return_type " " #function_name "(" #__VA_ARGS__ ") " #suffix}; \
+		aux.stub(); return aux;}();\
+    prefix return_type function_name(_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__)) suffix \
+    { \
+        return jg::detail::mock_impl<return_type, decltype(function_name ## overload_suffix ## _)> \
+               (function_name ## overload_suffix ## _).impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
+    }
+
+#define JG_STUB(return_type, function_name, ...) \
+    jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+    function_name ## _ = [] { \
+    	jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+    	aux{#return_type " " #function_name "(" #__VA_ARGS__ ") "}; \
+		aux.stub(); return aux;}();\
+    return_type function_name(_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__)) \
+    { \
+        return jg::detail::mock_impl<return_type, decltype(function_name ## _)> \
+               (function_name ## _).impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
+    }
+
+/// @macro JG_MOCK_COM_EX
+///
+/// Same as JG_MOCK_EX, but with the calling convention STDMETHODCALLTYPE added to the function prototype
 #ifdef STDMETHODCALLTYPE
-#define JG_MOCK_COM(prefix, suffix, overload_suffix, return_type, function_name, ...) \
+#define JG_MOCK_COM_EX(prefix, suffix, overload_suffix, return_type, function_name, ...) \
     jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
     function_name ## overload_suffix ## _ \
     {#return_type " " #function_name "(" #__VA_ARGS__ ") " #suffix}; \
@@ -637,13 +703,50 @@ public:
         return jg::detail::mock_impl<return_type, decltype(function_name ## overload_suffix ## _)> \
                (function_name ## overload_suffix ## _).impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
     }
+#define JG_MOCK_COM(return_type, function_name, ...) \
+    jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+    function_name ## _ \
+    {#return_type " " #function_name "(" #__VA_ARGS__ ") "}; \
+    return_type STDMETHODCALLTYPE function_name(_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__)) \
+    { \
+        return jg::detail::mock_impl<return_type, decltype(function_name ## _)> \
+               (function_name ## _).impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
+    }
+/// @macro JG_STUB_COM_EX
+///
+/// Same as JG_MOCK_COM_EX, but with the stub() function invoked automatically.
+#define JG_STUB_COM_EX(prefix, suffix, overload_suffix, return_type, function_name, ...) \
+    jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+    function_name ## overload_suffix ## _ = [] { \
+    	jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+    	aux{#return_type " " #function_name "(" #__VA_ARGS__ ") " #suffix}; \
+		aux.stub(); return aux;}();\
+    prefix return_type STDMETHODCALLTYPE function_name(_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__)) suffix \
+    { \
+        return jg::detail::mock_impl<return_type, decltype(function_name ## overload_suffix ## _)> \
+               (function_name ## overload_suffix ## _).impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
+    }
+#define JG_STUB_COM(return_type, function_name, ...) \
+    jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+    function_name ## _ = [] { \
+    	jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+    	aux{#return_type " " #function_name "(" #__VA_ARGS__ ") "}; \
+		aux.stub(); return aux;}();\
+    return_type STDMETHODCALLTYPE function_name(_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__)) \
+    { \
+        return jg::detail::mock_impl<return_type, decltype(function_name ## _)> \
+               (function_name ## _).impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
+    }
 #else
+#define JG_MOCK_COM_EX JG_MOCK_EX
 #define JG_MOCK_COM JG_MOCK
+#define JG_STUB_COM_EX JG_MOCK_EX
+#define JG_STUB_COM JG_STUB
 #endif // STDMETHODCALLTYPE
 
-/// @macro JG_MOCK_REF
+/// @macro JG_MOCK_REF_EX
 ///
-/// Makes an `extern` declaration of the auxiliary data defined by a corresponding usage of `JG_MOCK` in
+/// Makes an `extern` declaration of the auxiliary data defined by a corresponding usage of `JG_MOCK_EX` in
 /// a .cpp file. This makes it possible to only have one definition of a mock function in an entire test
 /// program, and using its auxiliary data in other translation units.
 ///
@@ -654,14 +757,14 @@ public:
 ///
 ///         #include "flubber_mocks.h"
 ///
-///         JG_MOCK(,,, foo*, foolib_create, const char*);
+///         JG_MOCK_EX(,,, foo*, foolib_create, const char*);
 ///
 ///   * flubber_mocks.h
 ///
 ///         #include <foolib.h>
 ///         #include <jg/jg_mock.h>
 ///
-///         JG_MOCK_REF(,,, foo*, foolib_create, const char*);
+///         JG_MOCK_REF_EX(,,, foo*, foolib_create, const char*);
 ///
 ///   * flubber_tests.cpp
 ///
@@ -698,12 +801,36 @@ public:
 ///             TEST_ASSERT(foolib_create_.param<1>() != nullptr);
 ///         }
 ///
-/// Mismatched `JG_MOCK` and `JG_MOCK_REF` declarations leads to compilation and linker errors.
-#define JG_MOCK_REF(prefix, suffix, overload_suffix, return_type, function_name, ...) \
+/// Mismatched `JG_MOCK_EX` and `JG_MOCK_REF_EX` declarations leads to compilation and linker errors.
+#define JG_MOCK_REF_EX(prefix, suffix, overload_suffix, return_type, function_name, ...) \
     extern jg::detail::mock_aux<return_type, ##__VA_ARGS__> function_name ## overload_suffix ## _
 
+#define JG_MOCK_REF(return_type, function_name, ...) \
+    extern jg::detail::mock_aux<return_type, ##__VA_ARGS__> function_name ## _
+
+/// @macro JG_STUB_REF
+///
+/// Same as JG_MOCK_REF_EX but for "stubbed out" void functions.
+#define JG_STUB_REF_EX(prefix, suffix, overload_suffix, return_type, function_name, ...) \
+    extern jg::detail::mock_aux<return_type, ##__VA_ARGS__> function_name ## overload_suffix ## _
+
+#define JG_STUB_REF(return_type, function_name, ...) \
+    extern jg::detail::mock_aux<return_type, ##__VA_ARGS__> function_name ## _
+
 #ifdef JG_MOCK_ENABLE_SHORT_NAMES
-    #define MOCK     JG_MOCK
-    #define MOCK_COM JG_MOCK_COM
-    #define MOCK_REF JG_MOCK_REF
+	//
+    #define MOCK_EX     JG_MOCK_EX
+    #define MOCK        JG_MOCK
+    #define STUB_EX     JG_STUB_EX
+    #define STUB        JG_STUB
+	//
+    #define MOCK_COM_EX JG_MOCK_COM_EX
+    #define MOCK_COM    JG_MOCK_COM
+    #define STUB_COM_EX JG_STUB_COM_EX
+    #define STUB_COM    JG_STUB_COM
+	//
+    #define MOCK_REF_EX JG_MOCK_REF_EX
+    #define MOCK_REF    JG_MOCK_REF
+    #define STUB_REF_EX JG_STUB_REF_EX
+    #define STUB_REF    JG_STUB_REF
 #endif

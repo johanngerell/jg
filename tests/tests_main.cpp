@@ -9,10 +9,10 @@
 
 // For verifying that noexcept functions in jg "fail" (as per jg::verify) when they should.
 // The specific name `mock_assert` is defined by JG_VERIFY_ASSERTION in CMakeLists.txt.
-JG_MOCK(,,, void, mock_assert, bool);
+JG_MOCK_EX(,,, void, mock_assert, bool);
 
 // For testing that mocking of free functions work. The corresponding JG_MOCK_REF is in mock_tests.cpp.
-JG_MOCK(,,, bool, test_free_function, char, bool, int, const char*);
+JG_MOCK_EX(,,, bool, test_free_function, char, bool, int, const char*);
 
 #define JG_TEST_MAIN
 #define JG_TEST_IMPL

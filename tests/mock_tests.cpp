@@ -2,10 +2,10 @@
 #include <jg_test.h>
 
 bool test_free_function(char, bool, int, const char*);
-JG_MOCK_REF(,,, bool, test_free_function, char, bool, int, const char*);
+JG_MOCK_REF_EX(,,, bool, test_free_function, char, bool, int, const char*);
 
 // For checking if the auxiliary result is properly verified when used without being set.
-JG_MOCK_REF(,,, void, mock_assert, bool);
+JG_MOCK_REF_EX(,,, void, mock_assert, bool);
 
 namespace {
 
@@ -23,7 +23,7 @@ struct test_abstract_class
 
 struct mock_test_abstract_class final : test_abstract_class
 {
-    JG_MOCK(,,, bool, function1, char, bool, int, const char*);
+    JG_MOCK_EX(,,, bool, function1, char, bool, int, const char*);
 };
 
 bool using_test_abstract_class(test_abstract_class& t, char c, bool b, int i, const char* s)
@@ -57,9 +57,10 @@ jg::test_adder mock_tests { "mock", {
             jg_test_assert(test_free_function_.result == false);
             jg_test_assert(test_free_function_.func == nullptr);
         }},
-        jg::test_case { "reset clears state after call", [] {
+        jg::test_case { "reset clears state after call, except persistent state", [] {
             test_free_function_.reset(); // only needed for free function mocks
             test_free_function_.result = true;
+            test_free_function_.func = [] (auto, auto, auto, auto) { return true; };
 
             jg_test_assert(using_mock_test_free_function('a', true, 4711, "foobar1"));
             test_free_function_.reset();
@@ -69,8 +70,9 @@ jg::test_adder mock_tests { "mock", {
             jg_test_assert(test_free_function_.param<2>() == false);
             jg_test_assert(test_free_function_.param<3>() == 0);
             jg_test_assert(test_free_function_.param<4>() == nullptr);
-            jg_test_assert(test_free_function_.result == false);
-            jg_test_assert(test_free_function_.func == nullptr);
+            // Not reset
+            jg_test_assert(test_free_function_.result == true);
+            jg_test_assert(test_free_function_.func != nullptr);
         }},
         jg::test_case { "with result", [] {
             test_free_function_.reset(); // only needed for free function mocks
@@ -126,9 +128,10 @@ jg::test_adder mock_tests { "mock", {
             jg_test_assert(mock.function1_.result == false);
             jg_test_assert(mock.function1_.func == nullptr);
         }},
-        jg::test_case { "reset clears state after call", [] {
+        jg::test_case { "reset clears state after call, except persistent state", [] {
             mock_test_abstract_class mock;
             mock.function1_.result = true;
+            mock.function1_.func = [] (auto, auto, auto, auto) { return true; };
 
             jg_test_assert(using_test_abstract_class(mock, 'a', true, 4711, "foobar1"));
             mock.function1_.reset();
@@ -138,8 +141,9 @@ jg::test_adder mock_tests { "mock", {
             jg_test_assert(mock.function1_.param<2>() == false);
             jg_test_assert(mock.function1_.param<3>() == 0);
             jg_test_assert(mock.function1_.param<4>() == nullptr);
-            jg_test_assert(mock.function1_.result == false);
-            jg_test_assert(mock.function1_.func == nullptr);
+            // Not reset
+            jg_test_assert(mock.function1_.result == true);
+            jg_test_assert(mock.function1_.func != nullptr);
         }},
         jg::test_case { "with result", [] {
             mock_test_abstract_class mock;

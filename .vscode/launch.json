@@ -131,10 +131,10 @@
             "externalConsole": true
         },
         {
-            "name": "(Windows) tests - jg_unit_tests - Debug",
+            "name": "(Windows) tests - jg_tests - Debug",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/windows/debug/jg_unit_tests.exe",
+            "program": "${workspaceFolder}/build/Debug/jg_tests.exe",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

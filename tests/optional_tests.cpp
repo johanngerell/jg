@@ -2,7 +2,7 @@
 #include <jg_mock.h>
 #include <jg_test.h>
 
-JG_MOCK_REF(,,, void, mock_assert, bool);
+JG_MOCK_REF_EX(,,, void, mock_assert, bool);
 
 namespace {
 
@@ -33,7 +33,7 @@ void jg_test_assert_accessors(const jg::optional<my_type>& optional, int i, bool
 {
     jg_test_assert(optional->i == i);
     jg_test_assert(optional->b == b);
-    jg_test_assert(optional->s == s);  
+    jg_test_assert(optional->s == s);
     jg_test_assert(optional.value().i == i);
     jg_test_assert(optional.value().b == b);
     jg_test_assert(optional.value().s == s);
@@ -56,7 +56,7 @@ jg::test_adder optional_tests { "optional", {
         }},
         jg::test_case { "Constructed with rvalue has value - alt 1", [] {
             jg::optional<my_type> optional{my_type{4711, true, "foobar"}};
-            
+
             jg_test_assert(!!optional);
             jg_test_assert(optional.has_value());
             jg_test_assert_accessors(optional, 4711, true, "foobar");
@@ -79,7 +79,7 @@ jg::test_adder optional_tests { "optional", {
         }},
         jg::test_case { "Constructed with rvalue optional has value - alt 1", [] {
             jg::optional<my_type> optional{jg::optional<my_type>{my_type{4711, true, "foobar"}}};
-            
+
             jg_test_assert(!!optional);
             jg_test_assert(optional.has_value());
             jg_test_assert_accessors(optional, 4711, true, "foobar");
@@ -105,7 +105,7 @@ jg::test_adder optional_tests { "optional", {
         jg::test_case { "Assigned with rvalue optional has value - alt 1", [] {
             jg::optional<my_type> optional{my_type{4712, false, "foo"}};
             optional = jg::optional<my_type>{my_type{4711, true, "foobar"}};
-            
+
             jg_test_assert(!!optional);
             jg_test_assert(optional.has_value());
             jg_test_assert_accessors(optional, 4711, true, "foobar");
@@ -131,7 +131,7 @@ jg::test_adder optional_tests { "optional", {
         jg::test_case { "Assigned with rvalue has value - alt 1", [] {
             jg::optional<my_type> optional{my_type{4712, false, "bar"}};
             optional = my_type{4711, true, "foobar"};
-            
+
             jg_test_assert(!!optional);
             jg_test_assert(optional.has_value());
             jg_test_assert_accessors(optional, 4711, true, "foobar");
