@@ -32,7 +32,7 @@
 #include <stdexcept>
 #endif
 
-namespace jg::detail {
+namespace jg { namespace detail {
 
 #if (__cplusplus >= 201402L)
 // C++20 has std::remove_cvref<>.
@@ -159,7 +159,7 @@ public:
     operator T()
     {
         verify(m_assigned);
-        return m_value;
+        return std::move(m_value);
     }
 
     bool assigned() const
@@ -236,7 +236,7 @@ public:
     void                        reset()
     {
         m_count = 0;
-        m_params = {};//tuple_params_t<Params...>
+        m_params = {};
     }
 
 private:
@@ -349,7 +349,7 @@ private:
     TMockAux& m_aux;
 };
 
-} // namespace jg::detail
+}} // namespace jg::detail
 
 #define _JG_CONCAT5(x1, x2, x3, x4, x5) x1 ## x2 ## x3 ## x4 ## x5
 #define _JG_CONCAT2(x1, x2) x1 ## x2
@@ -663,6 +663,16 @@ private:
                (function_name ## _).impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
     }
 
+#define JG_MOCK_C(return_type, function_name, ...) \
+    jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+    function_name ## _ \
+    {#return_type " " #function_name "(" #__VA_ARGS__ ") const "}; \
+    return_type function_name(_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__)) const \
+    { \
+        return jg::detail::mock_impl<return_type, decltype(function_name ## _)> \
+               (function_name ## _).impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
+    }
+
 /// @macro JG_STUB_EX
 ///
 /// Same as JG_MOCK_EX, but with the stub() function invoked automatically, to easily "stub out" functions.
@@ -690,6 +700,18 @@ private:
                (function_name ## _).impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
     }
 
+#define JG_STUB_C(return_type, function_name, ...) \
+    jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+    function_name ## _ = [] { \
+    	jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+    	aux{#return_type " " #function_name "(" #__VA_ARGS__ ") const "}; \
+		aux.stub(); return aux;}();\
+    return_type function_name(_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__)) const \
+    { \
+        return jg::detail::mock_impl<return_type, decltype(function_name ## _)> \
+               (function_name ## _).impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
+    }
+
 /// @macro JG_MOCK_COM_EX
 ///
 /// Same as JG_MOCK_EX, but with the calling convention STDMETHODCALLTYPE added to the function prototype
@@ -708,6 +730,15 @@ private:
     function_name ## _ \
     {#return_type " " #function_name "(" #__VA_ARGS__ ") "}; \
     return_type STDMETHODCALLTYPE function_name(_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__)) \
+    { \
+        return jg::detail::mock_impl<return_type, decltype(function_name ## _)> \
+               (function_name ## _).impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
+    }
+#define JG_MOCK_COM_C(return_type, function_name, ...) \
+    jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+    function_name ## _ \
+    {#return_type " " #function_name "(" #__VA_ARGS__ ") const "}; \
+    return_type STDMETHODCALLTYPE function_name(_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__)) const \
     { \
         return jg::detail::mock_impl<return_type, decltype(function_name ## _)> \
                (function_name ## _).impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
@@ -737,11 +768,24 @@ private:
         return jg::detail::mock_impl<return_type, decltype(function_name ## _)> \
                (function_name ## _).impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
     }
+#define JG_STUB_COM_C(return_type, function_name, ...) \
+    jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+    function_name ## _ = [] { \
+    	jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+    	aux{#return_type " " #function_name "(" #__VA_ARGS__ ") const "}; \
+		aux.stub(); return aux;}();\
+    return_type STDMETHODCALLTYPE function_name(_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__)) const \
+    { \
+        return jg::detail::mock_impl<return_type, decltype(function_name ## _)> \
+               (function_name ## _).impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
+    }
 #else
 #define JG_MOCK_COM_EX JG_MOCK_EX
 #define JG_MOCK_COM JG_MOCK
+#define JG_MOCK_COM_C JG_MOCK_C
 #define JG_STUB_COM_EX JG_MOCK_EX
 #define JG_STUB_COM JG_STUB
+#define JG_STUB_COM_C JG_STUB_C
 #endif // STDMETHODCALLTYPE
 
 /// @macro JG_MOCK_REF_EX
@@ -821,16 +865,141 @@ private:
 	//
     #define MOCK_EX     JG_MOCK_EX
     #define MOCK        JG_MOCK
+    #define MOCK        JG_MOCK_C
     #define STUB_EX     JG_STUB_EX
     #define STUB        JG_STUB
+    #define STUB        JG_STUB_C
 	//
     #define MOCK_COM_EX JG_MOCK_COM_EX
     #define MOCK_COM    JG_MOCK_COM
+    #define MOCK_COM    JG_MOCK_COM_C
     #define STUB_COM_EX JG_STUB_COM_EX
     #define STUB_COM    JG_STUB_COM
+    #define STUB_COM    JG_STUB_COM_C
 	//
     #define MOCK_REF_EX JG_MOCK_REF_EX
     #define MOCK_REF    JG_MOCK_REF
     #define STUB_REF_EX JG_STUB_REF_EX
     #define STUB_REF    JG_STUB_REF
 #endif
+
+namespace jg {
+
+/// @class jg::mock_simple
+///
+/// A simple auxiliary data type to use for mocking void functions that aren't supported by the JG_MOCK or
+/// JG_STUB set of macros. One such example is variadic functions, which can't be mocked or stubbed, due to
+/// the fact that the parameter list is unknown at compile time.
+///
+/// In an example scenario we might have a base class `vlogger` with a virtual function `info`:
+///
+///     class vlogger
+///     {
+///     public:
+///         virtual void info(const char* format, ...) = 0;
+///         ...
+///     };
+///
+/// The JG_MOCK and JG_STUB set of macros don't support variadic functions, but the `info` function can be
+/// mocked manually with basic introspection functionality. That is tedious, repetitive, and error prone
+/// though. Instead, one can use `jg::mock_simple` like this:
+///
+///     struct mock_vlogger : vlogger
+///     {
+///         void info(const char* format, ...) override { info_(); }
+///         jg::mock_simple info_;
+///         ...
+///     };
+///
+///     TEST("tested entity can do its job")
+///     {
+///         // The mock class instance.
+///         mock_vlogger logger;
+///
+///         // Depends on vlogger
+///         some_tested_entity tested_entity(logger);
+///
+///         TEST_ASSERT(tested_entity.can_do_its_job());      // Allegedly uses vlogger::info()
+///         TEST_ASSERT(logger.info_.called());               // Did the tested entity even call it?
+///     }
+///
+/// The biggest differences with jg::mock_simple from the full functionality given by JG_MOCK/JG_STUB,
+/// apart from just being more verbose, is that function parameters aren't "recorded" or passed to the
+/// jg::mock_simple instance, and there's no automatic verification that non-stub functions are actually
+/// assigned an implementation (the auxiliary data `func`) or a return value (the auxiliary data `result`)
+/// before being called by a tested system.
+class mock_simple
+{
+public:
+    size_t count() const { return m_count; }
+    bool   called() const { return m_count > 0; }
+	void   reset() { m_count = 0; func = nullptr; }
+	void   operator()() { m_count++; if (func) func(); }
+
+	std::function<void()> func;
+
+private:
+	size_t m_count{};
+};
+
+/// @class jg::mock_simple_return
+///
+/// A simple auxiliary data type to use for mocking non-void functions that aren't supported by the JG_MOCK
+/// or JG_STUB set of macros. One such example is variadic functions, which can't be mocked or stubbed, due
+/// to the fact that the parameter list is unknown at compile time.
+///
+/// In an example scenario we might have a base class `vformatter` with a virtual function `format`:
+///
+///     class vformatter
+///     {
+///     public:
+///         virtual size_t format(const char* format, ...) = 0;
+///         ...
+///     };
+///
+/// The JG_MOCK and JG_STUB set of macros don't support variadic functions, but the `format` function can be
+/// mocked manually with basic introspection functionality. That is tedious, repetitive, and error prone
+/// though. Instead, one can use `jg::mock_simple_return` like this:
+///
+///     struct mock_vformatter : vformatter
+///     {
+///         size_t format(const char* format, ...) override { return format_(); }
+///         jg::mock_simple_return<size_t> format_;
+///         ...
+///     };
+///
+///     TEST("tested entity can do its job")
+///     {
+///         // The mock class instance.
+///         mock_vformatter formatter;
+///         formatter.format_.func = [] { return 42; }        // Mocked formatted string length
+///
+///         // Depends on vformatter
+///         some_tested_entity tested_entity(formatter);
+///
+///         TEST_ASSERT(tested_entity.can_do_its_job());      // Allegedly uses vformatter::format()
+///         TEST_ASSERT(formatter.format_.called());          // Did the tested entity even call it?
+///     }
+///
+/// The biggest differences with jg::mock_simple_return from the full functionality given by JG_MOCK/JG_STUB,
+/// apart from just being more verbose, is that function parameters aren't "recorded" or passed to the
+/// jg::mock_simple_return instance, and there's no automatic verification that non-stub functions are actually
+/// assigned an implementation (the auxiliary data `func`) or a return value (the auxiliary data `result`)
+/// before being called by a tested system. Also, return types cannot be of reference type - if that's required
+/// and JG_MOCK/JG_STUB cannot be used, then manual mocking must be done.
+template <typename T>
+class mock_simple_return
+{
+public:
+    size_t count() const { return m_count; }
+    bool   called() const { return m_count > 0; }
+	void   reset() { m_count = 0; func = nullptr; T = {}; }
+	T      operator()() { m_count++; return func(); }
+
+	std::function<T()> func;
+
+private:
+	size_t m_count{};
+};
+
+} // namespace jg

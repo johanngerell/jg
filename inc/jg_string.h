@@ -2,9 +2,11 @@
 
 #include <array>
 #include <cstring>
+#include <string>
+#if (__cplusplus > 201402L)
 #include <charconv>
 #include <optional>
-#include <string>
+#endif // >= C++17
 #include "jg_span.h"
 #include "jg_verify.h"
 
@@ -14,16 +16,18 @@ inline std::string& trim_left(std::string& string, const std::string& chars = "\
 {
     return string.erase(0, string.find_first_not_of(chars));
 }
- 
+
 inline std::string& trim_right(std::string& string, const std::string& chars = "\t\n\v\f\r ")
 {
     return string.erase(string.find_last_not_of(chars) + 1);
 }
- 
+
 inline std::string& trim(std::string& string, const std::string& chars = "\t\n\v\f\r ")
 {
     return trim_left(trim_right(string, chars), chars);
 }
+
+#if (__cplusplus > 201402L)
 
 constexpr bool starts_with(std::string_view string, std::string_view start)
 {
@@ -85,7 +89,7 @@ struct ostream_joiner final
         bool separate = false;
         for(auto it = self.first; it != self.last; ++it)
             stream << (separate ? self.delimiter : (separate = true, "")) << *it;
-        
+
         return stream;
     }
 };
@@ -107,5 +111,7 @@ constexpr std::optional<TRet> from_chars(std::string_view string)
 
     return std::nullopt;
 }
+
+#endif // >= C++17
 
 } // namespace jg
