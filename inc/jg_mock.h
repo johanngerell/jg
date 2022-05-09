@@ -19,9 +19,9 @@
 //
 // These compilation flags affect how jg::mock functions
 //
-//   - JG_MOCK_THROW_NOT_IMPLEMENTED: If a mocked function is called without an assigned func or result,
-//     a std::logic_error with the prototype of the called function is thrown. This makes it easier to
-//     use jg_mock with test frameworks like Catch2 and similar that handles tests that fail due to
+//   - JG_MOCK_THROW_NOT_IMPLEMENTED: If a mocked function is called without an assigned func/func0 or
+//     result, a std::logic_error with the prototype of the called function is thrown. This makes it easier
+//     to use jg_mock with test frameworks like Catch2 and similar that handles tests that fail due to
 //     thrown exceptions.
 //
 // Note that MSVC versions before Visual Studio 2019 might require
@@ -176,59 +176,60 @@ template <typename TImpl>
 class mock_aux_return_base
 {
 public:
-	// If JG_MOCK_THROW_NOT_IMPLEMENTED is defined and func or result isn't set for a void function mock,
-	// or func isn't set for a non-void function mock, then a std::logic_error exception is thrown if the
-	// function is called. By calling stub() on the mock, or declaring the mock with any of the JG_STUB*
-	// macros, the function can be called without setting func or result. This is handy when the function
-	// has a long parameter list and writing an empty lambda for it is a bit tiresome. Making the mock a
-	// stub is a persistent change, i.e., the mock remains a stub after being reset.
-	void stub() { m_stub = true; static_cast<TImpl*>(this)->on_stub(); }
-	bool is_stub() const { return m_stub; }
+    // If JG_MOCK_THROW_NOT_IMPLEMENTED is defined and func/func0 or result isn't set for a void function
+    // mock, or func/func0 isn't set for a non-void function mock, then a std::logic_error exception is
+    // thrown if the function is called. By calling stub() on the mock, or declaring the mock with any of
+    // the JG_STUB* macros, the function can be called without setting func/func0 or result. This is handy
+    // when the function has a long parameter list and writing an empty lambda for it is a bit tiresome.
+    // Making the mock a stub is a persistent change, i.e., the mock remains a stub after being reset.
+    void stub() { m_stub = true; static_cast<TImpl*>(this)->on_stub(); }
+    bool is_stub() const { return m_stub; }
 
 private:
-	bool m_stub = false;
+    bool m_stub = false;
 };
 
-// The auxiliary data for a mock function that returns non-`void` has a `result` member
-// that can be set in tests. This is the simplest way to just return a specific value from a
-// mock function. The other way is to assign a callable (like a lambda) to the `func` member,
-// but if just a return value needs to be modeled, then `result` is the easier way.
+// The auxiliary data for a mock function that returns non-`void` has a `result` member that can be set
+// in tests. This is the simplest way to just return a specific value from a mock function. The other way
+// is to assign a callable (like a lambda) to the `func` or `func0` members, but if just a return value
+// needs to be modeled, then `result` is the easier way.
 template <typename T>
 class mock_aux_return : public mock_aux_return_base<mock_aux_return<T>>
 {
 public:
     // Verifying that a test doesn't use it without first setting it.
-	// Setting the mock result is a persistent change, i.e., the result remains after the mock is reset.
+    // Setting the mock result is a persistent change, i.e., the result remains after the mock is reset.
     verified<T> result;
 
 private:
-	friend class mock_aux_return_base<mock_aux_return<T>>;
-	void on_stub() { result = T{}; }
+    friend class mock_aux_return_base<mock_aux_return<T>>;
+    void on_stub() { result = T{}; }
 };
 
 // The auxiliary data for a mock function that returns `void` has no `result` member, and
 // the function implementation can only be controlled by assigning a callable (like a lambda)
-// to the `func` member.
+// to the `func` or `func0` members.
 template <>
 class mock_aux_return<void> : public mock_aux_return_base<mock_aux_return<void>>
 {
 private:
-	friend class mock_aux_return_base<mock_aux_return<void>>;
-	void on_stub() {}
+    friend class mock_aux_return_base<mock_aux_return<void>>;
+    void on_stub() {}
 };
 
 template <typename T, typename ...Params>
 class mock_aux final : public mock_aux_return<T>, public mock_aux_parameters<sizeof...(Params), Params...>
 {
 public:
-	// The mock prototype is persistent, i.e., the it remains after the mock is reset.
+    // The mock prototype is persistent, i.e., the it remains after the mock is reset.
     mock_aux(std::string prototype)
         : m_count(0)
         , m_prototype(trim(prototype, " "))
     {}
 
-	// Setting the mock func is a persistent change, i.e., the func remains after the mock is reset.
-    std::function<T(Params...)> func;
+    // Setting the mock func or func0 is a persistent change, i.e., they remain after the mock is reset.
+    std::function<T(Params...)> func;  // If both func and func0 are set, then only func is called.
+    std::function<T()>          func0; // If both func and func0 are set, then only func is called.
     size_t                      count() const { return m_count; }
     bool                        called() const { return m_count > 0; }
     std::string                 prototype() const { return m_prototype; }
@@ -236,7 +237,7 @@ public:
     void                        reset()
     {
         m_count = 0;
-        m_params = {};
+        mock_aux_parameters<sizeof...(Params), Params...>::m_params = {};//tuple_params_t<Params...>
     }
 
 private:
@@ -250,7 +251,7 @@ private:
 template <typename T, typename TImpl, typename Enable = void>
 class mock_impl_base;
 
-// A mock function that returns `void` only calls `func` in its
+// A mock function that returns `void` only calls `func` or `func0` in its
 // auxiliary data if it's set in the test. Nothing is done if it's not set.
 #if (__cplusplus >= 201402L)
 // C++17 has std::is_same_v<>.
@@ -267,22 +268,23 @@ public:
     {
         auto& aux = static_cast<TImpl*>(this)->m_aux;
 
-		#ifdef JG_MOCK_THROW_NOT_IMPLEMENTED
-		if (!aux.func && !aux.is_stub())
-			throw std::logic_error(std::string("No func set for mocked function '").append(aux.prototype()).append("'."));
-		#endif
+        #ifdef JG_MOCK_THROW_NOT_IMPLEMENTED
+        if (!aux.func && !aux.func0 && !aux.is_stub())
+            throw std::logic_error(std::string("No func or func0 set for mocked function '").append(aux.prototype()).append("'."));
+        #endif
 
         if (aux.func)
             aux.func(std::forward<Params>(params)...);
+        else if (aux.func0)
+            aux.func0();
     }
 };
 
-// A mock function that returns non-`void` calls the `func` member
-// in its auxiliary data if it's set in the test. If the `func` member isn't set, then the `result`
-// member is used instead. If the `result` member isn't set, then by default an assertion failure is
-// triggered and a stack trace is output, or the default value for the `result` member type is
-// returned if the bahavior is non-default. The documentation for `jg::verify` has details on how to
-// configure the assertion behavior at compile time.
+// A mock function that returns non-`void` calls the `func` or `func0` member in its auxiliary data if it's
+// set in the test. If the `func` member isn't set, then the `result` member is used instead. If the `result`
+// member isn't set, then by default an assertion failure is triggered and a stack trace is output, or the
+// default value for the `result` member type is returned if the bahavior is non-default. The documentation
+// for `jg::verify` has details on how to configure the assertion behavior at compile time.
 // @see jg::verify
 #if (__cplusplus >= 201402L)
 // C++17 has std::is_same_v<>.
@@ -299,15 +301,17 @@ public:
     {
         auto& aux = static_cast<TImpl*>(this)->m_aux;
 
-		#ifdef JG_MOCK_THROW_NOT_IMPLEMENTED
-		if (!aux.func && !aux.result.assigned() && !aux.is_stub())
-			throw std::logic_error(std::string("No func or result set for mocked function '").append(aux.prototype()).append("'."));
-		#endif
+        #ifdef JG_MOCK_THROW_NOT_IMPLEMENTED
+        if (!aux.func && !aux.func0 && !aux.result.assigned() && !aux.is_stub())
+            throw std::logic_error(std::string("No func, func0 or result set for mocked function '").append(aux.prototype()).append("'."));
+        #endif
 
         if (aux.func)
             return aux.func(std::forward<Params>(params)...);
-
-        return aux.result;
+        else if (aux.func0)
+            return aux.func0();
+        else
+            return aux.result;
     }
 };
 
@@ -345,7 +349,7 @@ public:
     }
 
 private:
-	friend class mock_impl_base<T, mock_impl<T, TMockAux>>;
+    friend class mock_impl_base<T, mock_impl<T, TMockAux>>;
     TMockAux& m_aux;
 };
 
@@ -513,8 +517,8 @@ private:
 /// it creates a function body that will use the auxiliary data in it's implementation.
 ///
 /// The mock function implementation can be controlled in a test 1) by intercepting calls to it by setting
-/// the auxiliary data `func` to a callable (like a lambda) that does the actual implementation, or 2) by
-/// setting the auxiliary data `result` to a value that will be returned by the function.
+/// the auxiliary data `func` or `func0` to a callable (like a lambda) that does the actual implementation,
+/// or 2) by setting the auxiliary data `result` to a value that will be returned by the function.
 ///
 /// Typical usage of a the mock class we defined above:
 ///
@@ -534,8 +538,8 @@ private:
 ///         TEST_ASSERT(names.find_by_id_.param<1>() < 4711); // Did the tested entity pass it a valid id?
 ///     }
 ///
-/// The `func` auxiliary data member can be used instead of `result`, or when the mock function is
-/// a void function and the auxiliary data simply doesn't have a `result` member.
+/// The `func` or `func0` auxiliary data members can be used instead of `result`, or when the mock function
+/// is a void function and the auxiliary data simply doesn't have a `result` member.
 ///
 ///     TEST("some_tested_entity retries twice when failing")
 ///     {
@@ -562,6 +566,9 @@ private:
 ///         TEST_ASSERT(tested_entity.format_nephews() == expected_format);
 ///         TEST_ASSERT(user_names.find_by_id_.count() == 3);
 ///     }
+///
+/// If the actual function parameter isn't of any interest, a parameter-less callable can be assigned to
+/// the `func0` auxiliary data member instead.
 ///
 /// @section Mocking a free function
 ///
@@ -598,6 +605,7 @@ private:
 /// The auxiliary data members available for a mock function `foo` that returns void and takes 0 parameters are:
 ///
 ///     std::function<void()>            foo_.func;        // can be set in a test
+///     std::function<void()>            foo_.func0;       // same as `func` when there are no parameters
 ///     ---------------------------------------------------------------------------
 ///     bool                             foo_.called();    // set by the mocking framework
 ///     size_t                           foo_.count();     // set by the mocking framework
@@ -606,6 +614,7 @@ private:
 /// The auxiliary data members available for a mock function `foo` that returns `T` and takes 0 parameters are:
 ///
 ///     std::function<T()>               foo_.func;        // can be set in a test
+///     std::function<T()>               foo_.func0;       // same as `func` when there are no parameters
 ///     T                                foo_.result;      // can be set in a test
 ///     ---------------------------------------------------------------------------
 ///     bool                             foo_.called();    // set by the mocking framework
@@ -615,6 +624,7 @@ private:
 /// The auxiliary data members available for a mock function `foo` that returns void and takes N parameters of types T1..TN:
 ///
 ///     std::function<void(T1, ..., TN)> foo_.func;        // can be set in a test
+///     std::function<void()>            foo_.func0;       // can be set in a test when parameter inspection isn't needed
 ///     ---------------------------------------------------------------------------
 ///     bool                             foo_.called();    // set by the mocking framework
 ///     size_t                           foo_.count();     // set by the mocking framework
@@ -627,6 +637,7 @@ private:
 /// The auxiliary data members available for a mock function `foo` that returns T and takes N parameters of types T1..TN:
 ///
 ///     std::function<void(T1, ..., TN)> foo_.func;        // can be set in a test
+///     std::function<void()>            foo_.func0;       // can be set in a test when parameter inspection isn't needed
 ///     T                                foo_.result;      // can be set in a test
 ///     ---------------------------------------------------------------------------
 ///     bool                             foo_.called();    // set by the mocking framework
@@ -653,6 +664,38 @@ private:
                (function_name ## overload_suffix ## _).impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
     }
 
+/// @macro JG_MOCK_EX_VA
+///
+/// Same as JG_MOCK_EX, but for a variadic function. Note that the variadic `...` declaration must be left
+/// out of the mock declaration and that there's no way to inspect the variadic parameters in the same way
+/// as can be done with the `param<N>()` getter for non-variadic function mocks.
+///
+/// @section Declaring a mock for a variadic function
+///
+/// If there is a function declared as
+///
+///     void foo(const char*, ...)
+///
+/// Then a mock for that function can be declared with
+///
+///     JG_MOCK_EX_VA(,,, void, foo, const char*)
+///
+/// The `func` callable and `param<N>()` getter of the auxiliary data `foo_` will include the `const char*`
+/// parameter, but no variadic parameters.
+#define JG_MOCK_EX_VA(prefix, suffix, overload_suffix, return_type, function_name, ...) \
+    jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+    function_name ## overload_suffix ## _ \
+    {#return_type " " #function_name "(" #__VA_ARGS__ ") " #suffix}; \
+    prefix return_type function_name(_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__), ...) suffix \
+    { \
+        return jg::detail::mock_impl<return_type, decltype(function_name ## overload_suffix ## _)> \
+               (function_name ## overload_suffix ## _).impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
+    }
+
+/// @macro JG_MOCK
+///
+/// Simpler variant of the full JG_MOCK_EX macro, for the majority case of functions that have no
+/// prefix or suffix, and aren't constant or overloads.
 #define JG_MOCK(return_type, function_name, ...) \
     jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
     function_name ## _ \
@@ -663,6 +706,9 @@ private:
                (function_name ## _).impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
     }
 
+/// @macro JG_MOCK_C
+///
+/// Same as JG_MOCK, but for constant functions.
 #define JG_MOCK_C(return_type, function_name, ...) \
     jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
     function_name ## _ \
@@ -673,40 +719,122 @@ private:
                (function_name ## _).impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
     }
 
+/// @macro JG_MOCK_VA
+///
+/// Simpler variant of the full JG_MOCK_EX_VA macro, for the majority case of functions that have no
+/// prefix or suffix, and aren't constant or overloads.
+#define JG_MOCK_VA(return_type, function_name, ...) \
+    jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+    function_name ## _ \
+    {#return_type " " #function_name "(" #__VA_ARGS__ ")"}; \
+    return_type function_name(_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__), ...) \
+    { \
+        return jg::detail::mock_impl<return_type, decltype(function_name ## _)> \
+               (function_name ## _).impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
+    }
+
+/// @macro JG_MOCK_VA_C
+///
+/// Same as JG_MOCK_VA, but for constant functions.
+#define JG_MOCK_VA_C(return_type, function_name, ...) \
+    jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+    function_name ## _ \
+    {#return_type " " #function_name "(" #__VA_ARGS__ ")"}; \
+    return_type function_name(_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__), ...) const \
+    { \
+        return jg::detail::mock_impl<return_type, decltype(function_name ## _)> \
+               (function_name ## _).impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
+    }
+
 /// @macro JG_STUB_EX
 ///
-/// Same as JG_MOCK_EX, but with the stub() function invoked automatically, to easily "stub out" functions.
+/// Same as JG_MOCK_EX, but with the stub() function invoked automatically, to easily "stub out" functions
+/// that perform operations that aren't part of testable behavior, for example.
 #define JG_STUB_EX(prefix, suffix, overload_suffix, return_type, function_name, ...) \
     jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
     function_name ## overload_suffix ## _ = [] { \
-    	jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
-    	aux{#return_type " " #function_name "(" #__VA_ARGS__ ") " #suffix}; \
-		aux.stub(); return aux;}();\
+        jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+        aux{#return_type " " #function_name "(" #__VA_ARGS__ ") " #suffix}; \
+        aux.stub(); return aux;}();\
     prefix return_type function_name(_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__)) suffix \
     { \
         return jg::detail::mock_impl<return_type, decltype(function_name ## overload_suffix ## _)> \
                (function_name ## overload_suffix ## _).impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
     }
 
+/// @macro JG_STUB_EX_VA
+///
+/// Same as JG_MOCK_EX_VA, but with the stub() function invoked automatically, to easily "stub out" functions
+/// that perform operations that aren't part of testable behavior, for example.
+#define JG_STUB_EX_VA(prefix, suffix, overload_suffix, return_type, function_name, ...) \
+    jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+    function_name ## overload_suffix ## _ = [] { \
+        jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+        aux{#return_type " " #function_name "(" #__VA_ARGS__ ") " #suffix}; \
+        aux.stub(); return aux;}();\
+    prefix return_type function_name(_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__), ...) suffix \
+    { \
+        return jg::detail::mock_impl<return_type, decltype(function_name ## overload_suffix ## _)> \
+               (function_name ## overload_suffix ## _).impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
+    }
+
+/// @macro JG_STUB
+///
+/// Same as JG_MOCK, but with the stub() function invoked automatically, to easily "stub out" functions
+/// that perform operations that aren't part of testable behavior, for example.
 #define JG_STUB(return_type, function_name, ...) \
     jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
     function_name ## _ = [] { \
-    	jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
-    	aux{#return_type " " #function_name "(" #__VA_ARGS__ ") "}; \
-		aux.stub(); return aux;}();\
+        jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+        aux{#return_type " " #function_name "(" #__VA_ARGS__ ") "}; \
+        aux.stub(); return aux;}();\
     return_type function_name(_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__)) \
     { \
         return jg::detail::mock_impl<return_type, decltype(function_name ## _)> \
                (function_name ## _).impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
     }
 
+/// @macro JG_STUB_C
+///
+/// Same as JG_STUB, but for constant functions.
 #define JG_STUB_C(return_type, function_name, ...) \
     jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
     function_name ## _ = [] { \
-    	jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
-    	aux{#return_type " " #function_name "(" #__VA_ARGS__ ") const "}; \
-		aux.stub(); return aux;}();\
+        jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+        aux{#return_type " " #function_name "(" #__VA_ARGS__ ") const "}; \
+        aux.stub(); return aux;}();\
     return_type function_name(_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__)) const \
+    { \
+        return jg::detail::mock_impl<return_type, decltype(function_name ## _)> \
+               (function_name ## _).impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
+    }
+
+/// @macro JG_STUB_VA
+///
+/// Simpler variant of the full JG_STUB_EX_VA macro, for the majority case of functions that have no
+/// prefix or suffix, and aren't constant or overloads.
+#define JG_STUB_VA(return_type, function_name, ...) \
+    jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+    function_name ## _ = [] { \
+        jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+        aux{#return_type " " #function_name "(" #__VA_ARGS__ ") "}; \
+        aux.stub(); return aux;}();\
+    return_type function_name(_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__), ...) \
+    { \
+        return jg::detail::mock_impl<return_type, decltype(function_name ## _)> \
+               (function_name ## _).impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
+    }
+
+/// @macro JG_STUB_VA_C
+///
+/// Same as JG_STUB_VA, but for constant functions.
+#define JG_STUB_VA_C(return_type, function_name, ...) \
+    jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+    function_name ## _ = [] { \
+        jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+        aux{#return_type " " #function_name "(" #__VA_ARGS__ ") "}; \
+        aux.stub(); return aux;}();\
+    return_type function_name(_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__), ...) const \
     { \
         return jg::detail::mock_impl<return_type, decltype(function_name ## _)> \
                (function_name ## _).impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
@@ -749,9 +877,9 @@ private:
 #define JG_STUB_COM_EX(prefix, suffix, overload_suffix, return_type, function_name, ...) \
     jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
     function_name ## overload_suffix ## _ = [] { \
-    	jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
-    	aux{#return_type " " #function_name "(" #__VA_ARGS__ ") " #suffix}; \
-		aux.stub(); return aux;}();\
+        jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+        aux{#return_type " " #function_name "(" #__VA_ARGS__ ") " #suffix}; \
+        aux.stub(); return aux;}();\
     prefix return_type STDMETHODCALLTYPE function_name(_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__)) suffix \
     { \
         return jg::detail::mock_impl<return_type, decltype(function_name ## overload_suffix ## _)> \
@@ -760,9 +888,9 @@ private:
 #define JG_STUB_COM(return_type, function_name, ...) \
     jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
     function_name ## _ = [] { \
-    	jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
-    	aux{#return_type " " #function_name "(" #__VA_ARGS__ ") "}; \
-		aux.stub(); return aux;}();\
+        jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+        aux{#return_type " " #function_name "(" #__VA_ARGS__ ") "}; \
+        aux.stub(); return aux;}();\
     return_type STDMETHODCALLTYPE function_name(_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__)) \
     { \
         return jg::detail::mock_impl<return_type, decltype(function_name ## _)> \
@@ -771,9 +899,9 @@ private:
 #define JG_STUB_COM_C(return_type, function_name, ...) \
     jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
     function_name ## _ = [] { \
-    	jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
-    	aux{#return_type " " #function_name "(" #__VA_ARGS__ ") const "}; \
-		aux.stub(); return aux;}();\
+        jg::detail::mock_aux<return_type, ##__VA_ARGS__> \
+        aux{#return_type " " #function_name "(" #__VA_ARGS__ ") const "}; \
+        aux.stub(); return aux;}();\
     return_type STDMETHODCALLTYPE function_name(_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__)) const \
     { \
         return jg::detail::mock_impl<return_type, decltype(function_name ## _)> \
@@ -862,144 +990,196 @@ private:
     extern jg::detail::mock_aux<return_type, ##__VA_ARGS__> function_name ## _
 
 #ifdef JG_MOCK_ENABLE_SHORT_NAMES
-	//
+    //
     #define MOCK_EX     JG_MOCK_EX
     #define MOCK        JG_MOCK
-    #define MOCK        JG_MOCK_C
+    #define MOCK_C      JG_MOCK_C
+    #define MOCK_EX_VA  JG_MOCK_EX_VA
+    #define MOCK_VA     JG_MOCK_VA
+    #define MOCK_VA_C   JG_MOCK_VA_C
     #define STUB_EX     JG_STUB_EX
     #define STUB        JG_STUB
-    #define STUB        JG_STUB_C
-	//
+    #define STUB_C      JG_STUB_C
+    #define STUB_EX_VA  JG_STUB_EX_VA
+    #define STUB_VA     JG_STUB_VA
+    #define STUB_VA_C   JG_STUB_VA_C
+    //
     #define MOCK_COM_EX JG_MOCK_COM_EX
     #define MOCK_COM    JG_MOCK_COM
     #define MOCK_COM    JG_MOCK_COM_C
     #define STUB_COM_EX JG_STUB_COM_EX
     #define STUB_COM    JG_STUB_COM
     #define STUB_COM    JG_STUB_COM_C
-	//
+    //
     #define MOCK_REF_EX JG_MOCK_REF_EX
     #define MOCK_REF    JG_MOCK_REF
     #define STUB_REF_EX JG_STUB_REF_EX
     #define STUB_REF    JG_STUB_REF
 #endif
 
-namespace jg {
+namespace jg { namespace detail {
 
-/// @class jg::mock_simple
-///
-/// A simple auxiliary data type to use for mocking void functions that aren't supported by the JG_MOCK or
-/// JG_STUB set of macros. One such example is variadic functions, which can't be mocked or stubbed, due to
-/// the fact that the parameter list is unknown at compile time.
-///
-/// In an example scenario we might have a base class `vlogger` with a virtual function `info`:
-///
-///     class vlogger
-///     {
-///     public:
-///         virtual void info(const char* format, ...) = 0;
-///         ...
-///     };
-///
-/// The JG_MOCK and JG_STUB set of macros don't support variadic functions, but the `info` function can be
-/// mocked manually with basic introspection functionality. That is tedious, repetitive, and error prone
-/// though. Instead, one can use `jg::mock_simple` like this:
-///
-///     struct mock_vlogger : vlogger
-///     {
-///         void info(const char* format, ...) override { info_(); }
-///         jg::mock_simple info_;
-///         ...
-///     };
-///
-///     TEST("tested entity can do its job")
-///     {
-///         // The mock class instance.
-///         mock_vlogger logger;
-///
-///         // Depends on vlogger
-///         some_tested_entity tested_entity(logger);
-///
-///         TEST_ASSERT(tested_entity.can_do_its_job());      // Allegedly uses vlogger::info()
-///         TEST_ASSERT(logger.info_.called());               // Did the tested entity even call it?
-///     }
-///
-/// The biggest differences with jg::mock_simple from the full functionality given by JG_MOCK/JG_STUB,
-/// apart from just being more verbose, is that function parameters aren't "recorded" or passed to the
-/// jg::mock_simple instance, and there's no automatic verification that non-stub functions are actually
-/// assigned an implementation (the auxiliary data `func`) or a return value (the auxiliary data `result`)
-/// before being called by a tested system.
-class mock_simple
+template <typename T, typename TImpl, typename Enable = void>
+class mock_simple_aux_base;
+
+// A mock function that returns `void` only calls `func` or `func0` if it's set in the test.
+// Nothing is done if it's not set.
+#if (__cplusplus >= 201402L)
+// C++17 has std::is_same_v<>.
+template <typename T, typename TImpl>
+class mock_simple_aux_base<T, TImpl, std::enable_if_t<std::is_same<T, void>::value>>
+#else
+template <typename T, typename TImpl>
+class mock_simple_aux_base<T, TImpl, typename std::enable_if<std::is_same<T, void>::value>::type>
+#endif
 {
 public:
-    size_t count() const { return m_count; }
-    bool   called() const { return m_count > 0; }
-	void   reset() { m_count = 0; func = nullptr; }
-	void   operator()() { m_count++; if (func) func(); }
+    template <typename... Params>
+    void impl(Params&&... params)
+    {
+        auto self = static_cast<TImpl*>(this);
 
-	std::function<void()> func;
+        self->m_count++;
 
-private:
-	size_t m_count{};
+        #ifdef JG_MOCK_THROW_NOT_IMPLEMENTED
+        if (!self->func && !self->func0 && !self->is_stub())
+            throw std::logic_error(std::string("No func or func0 set for mocked function."));
+        #endif
+
+        if (self->func)
+            self->func(std::forward<Params>(params)...);
+        else if (self->func0)
+            self->func0();
+    }
 };
 
-/// @class jg::mock_simple_return
-///
-/// A simple auxiliary data type to use for mocking non-void functions that aren't supported by the JG_MOCK
-/// or JG_STUB set of macros. One such example is variadic functions, which can't be mocked or stubbed, due
-/// to the fact that the parameter list is unknown at compile time.
-///
-/// In an example scenario we might have a base class `vformatter` with a virtual function `format`:
-///
-///     class vformatter
-///     {
-///     public:
-///         virtual size_t format(const char* format, ...) = 0;
-///         ...
-///     };
-///
-/// The JG_MOCK and JG_STUB set of macros don't support variadic functions, but the `format` function can be
-/// mocked manually with basic introspection functionality. That is tedious, repetitive, and error prone
-/// though. Instead, one can use `jg::mock_simple_return` like this:
-///
-///     struct mock_vformatter : vformatter
-///     {
-///         size_t format(const char* format, ...) override { return format_(); }
-///         jg::mock_simple_return<size_t> format_;
-///         ...
-///     };
-///
-///     TEST("tested entity can do its job")
-///     {
-///         // The mock class instance.
-///         mock_vformatter formatter;
-///         formatter.format_.func = [] { return 42; }        // Mocked formatted string length
-///
-///         // Depends on vformatter
-///         some_tested_entity tested_entity(formatter);
-///
-///         TEST_ASSERT(tested_entity.can_do_its_job());      // Allegedly uses vformatter::format()
-///         TEST_ASSERT(formatter.format_.called());          // Did the tested entity even call it?
-///     }
-///
-/// The biggest differences with jg::mock_simple_return from the full functionality given by JG_MOCK/JG_STUB,
-/// apart from just being more verbose, is that function parameters aren't "recorded" or passed to the
-/// jg::mock_simple_return instance, and there's no automatic verification that non-stub functions are actually
-/// assigned an implementation (the auxiliary data `func`) or a return value (the auxiliary data `result`)
-/// before being called by a tested system. Also, return types cannot be of reference type - if that's required
-/// and JG_MOCK/JG_STUB cannot be used, then manual mocking must be done.
-template <typename T>
-class mock_simple_return
+// A mock function that returns non-`void` calls the `func` or `func0` member if it's set in the test.
+// Otherwise a default initialized instance of the the return type is returned.
+#if (__cplusplus >= 201402L)
+// C++17 has std::is_same_v<>.
+template <typename T, typename TImpl>
+class mock_simple_aux_base<T, TImpl, std::enable_if_t<!std::is_same<T, void>::value>>
+#else
+template <typename T, typename TImpl>
+class mock_simple_aux_base<T, TImpl, typename std::enable_if<!std::is_same<T, void>::value>::type>
+#endif
 {
 public:
-    size_t count() const { return m_count; }
-    bool   called() const { return m_count > 0; }
-	void   reset() { m_count = 0; func = nullptr; T = {}; }
-	T      operator()() { m_count++; return func(); }
+    template <typename... Params>
+    T impl(Params&&... params)
+    {
+        auto self = static_cast<TImpl*>(this);
 
-	std::function<T()> func;
+        self->m_count++;
 
-private:
-	size_t m_count{};
+        #ifdef JG_MOCK_THROW_NOT_IMPLEMENTED
+        if (!self->func && !self->func0 && !self->is_stub())
+            throw std::logic_error(std::string("No func or func0 set for mocked function."));
+        #endif
+
+        if (self->func)
+            return self->func(std::forward<Params>(params)...);
+        else if (self->func0)
+            return self->func0();
+        else
+            return T{};
+    }
 };
 
-} // namespace jg
+template <typename T, typename ...Params>
+class mock_simple_aux : public mock_simple_aux_base<T, mock_simple_aux<T, Params...>>
+{
+public:
+    size_t                      count()  const { return m_count; }
+    bool                        called() const { return m_count > 0; }
+    void                        reset()        { m_count = 0; }
+    void                        stub()         { m_stub = true; } // Persistent across resets
+    bool                        is_stub()      { return m_stub; }
+
+    std::function<T(Params...)> func; // Persistent across resets
+    std::function<T()>          func0; // Persistent across resets
+
+private:
+    friend class mock_simple_aux_base<T, mock_simple_aux<T, Params...>>;
+    size_t m_count{};
+    bool m_stub{};
+};
+
+}} // namespace jg::detail
+
+/// @macro JG_MOCK_SIMPLE
+///
+/// A simpler variant of JG_MOCK to use for mocking functions that aren't supported by the JG_MOCK set of
+/// macros. For example, functions that return reference parameters, which cannot be mocked with the "full"
+/// macro because its functionality relies on being able to default-construct internal member variables.
+/// This is a solvable issue, but right now it doesn't work.
+#define JG_MOCK_SIMPLE(return_type, function_name, ...) \
+    jg::detail::mock_simple_aux<return_type, ##__VA_ARGS__> function_name ## _; \
+    return_type function_name (_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__)) \
+    { \
+        return function_name ## _.impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
+    }
+
+#define JG_MOCK_SIMPLE_C(return_type, function_name, ...) \
+    jg::detail::mock_simple_aux<return_type, ##__VA_ARGS__> function_name ## _; \
+    return_type function_name (_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__)) const \
+    { \
+        return function_name ## _.impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
+    }
+
+#define JG_MOCK_SIMPLE_VA(return_type, function_name, ...) \
+    jg::detail::mock_simple_aux<return_type, ##__VA_ARGS__> function_name ## _; \
+    return_type function_name (_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__), ...) \
+    { \
+        return function_name ## _.impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
+    }
+
+#define JG_MOCK_SIMPLE_VA_C(return_type, function_name, ...) \
+    jg::detail::mock_simple_aux<return_type, ##__VA_ARGS__> function_name ## _; \
+    return_type function_name (_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__), ...) const \
+    { \
+        return function_name ## _.impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
+    }
+
+#define JG_STUB_SIMPLE(return_type, function_name, ...) \
+    jg::detail::mock_simple_aux<return_type, ##__VA_ARGS__> function_name ## _ = [] { \
+        jg::detail::mock_simple_aux<return_type, ##__VA_ARGS__> aux; aux.stub(); return aux; }();\
+    return_type function_name (_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__)) \
+    { \
+        return function_name ## _.impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
+    }
+
+#define JG_STUB_SIMPLE_C(return_type, function_name, ...) \
+    jg::detail::mock_simple_aux<return_type, ##__VA_ARGS__> function_name ## _ = [] { \
+        jg::detail::mock_simple_aux<return_type, ##__VA_ARGS__> aux; aux.stub(); return aux; }();\
+    return_type function_name (_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__)) const \
+    { \
+        return function_name ## _.impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
+    }
+
+#define JG_STUB_SIMPLE_VA(return_type, function_name, ...) \
+    jg::detail::mock_simple_aux<return_type, ##__VA_ARGS__> function_name ## _ = [] { \
+        jg::detail::mock_simple_aux<return_type, ##__VA_ARGS__> aux; aux.stub(); return aux; }();\
+    return_type function_name (_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__), ...) \
+    { \
+        return function_name ## _.impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
+    }
+
+#define JG_STUB_SIMPLE_VA_C(return_type, function_name, ...) \
+    jg::detail::mock_simple_aux<return_type, ##__VA_ARGS__> function_name ## _ = [] { \
+        jg::detail::mock_simple_aux<return_type, ##__VA_ARGS__> aux; aux.stub(); return aux; }();\
+    return_type function_name (_JG_MOCK_FUNC_PARAMS_DECL(__VA_ARGS__), ...) const \
+    { \
+        return function_name ## _.impl(_JG_MOCK_FUNC_PARAMS_CALL(__VA_ARGS__)); \
+    }
+
+#ifdef JG_MOCK_ENABLE_SHORT_NAMES
+    #define MOCK_SIMPLE        JG_MOCK_SIMPLE
+    #define MOCK_SIMPLE_C      JG_MOCK_SIMPLE_C
+    #define MOCK_SIMPLE_VA     JG_MOCK_SIMPLE_VA
+    #define MOCK_SIMPLE_VA_C   JG_MOCK_SIMPLE_VA_C
+    #define STUB_SIMPLE        JG_STUB_SIMPLE
+    #define STUB_SIMPLE_C      JG_STUB_SIMPLE_C
+    #define STUB_SIMPLE_VA     JG_STUB_SIMPLE_VA
+    #define STUB_SIMPLE_VA_C   JG_STUB_SIMPLE_VA_C
+#endif
